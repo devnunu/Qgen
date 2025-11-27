@@ -71,6 +71,9 @@ Remember: JSON ONLY. No other text.
 `.trim();
 
     try {
+        console.log(`[OpenAI] Starting API call for ${count} questions on topic: "${topic}"`);
+        const startTime = Date.now();
+
         const completion = await client.chat.completions.create({
             model: MODEL_NAME,
             messages: [
@@ -79,6 +82,9 @@ Remember: JSON ONLY. No other text.
             ],
             temperature: 0.7,
         });
+
+        const apiDuration = Date.now() - startTime;
+        console.log(`[OpenAI] API call completed in ${apiDuration}ms (${(apiDuration / 1000).toFixed(2)}s)`);
 
         const content = completion.choices[0]?.message?.content;
         if (!content) {
@@ -137,10 +143,14 @@ Remember: JSON ONLY. No other text.
             };
         });
 
+        const totalDuration = Date.now() - startTime;
+        console.log(`[OpenAI] Total processing completed in ${totalDuration}ms (${(totalDuration / 1000).toFixed(2)}s)`);
+        console.log(`[OpenAI] Successfully generated ${questions.length} questions`);
+
         return { questions };
 
     } catch (error) {
-        console.error("Error generating questions:", error);
+        console.error("[OpenAI] Error generating questions:", error);
         throw error;
     }
 }
