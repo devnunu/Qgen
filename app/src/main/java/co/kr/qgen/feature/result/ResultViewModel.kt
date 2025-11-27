@@ -1,12 +1,11 @@
 package co.kr.qgen.feature.result
 
 import androidx.lifecycle.ViewModel
-import co.kr.qgen.feature.quiz.QuizViewModel
-import kotlinx.coroutines.flow.StateFlow
+import co.kr.qgen.core.model.QGenSessionViewModel
 
 class ResultViewModel(
-    private val quizViewModel: QuizViewModel
+    private val sessionViewModel: QGenSessionViewModel
 ) : ViewModel() {
     
-    val quizResult = quizViewModel.quizResult
+    val quizResult = sessionViewModel.quizResult
 }

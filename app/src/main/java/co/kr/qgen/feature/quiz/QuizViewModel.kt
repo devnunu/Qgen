@@ -39,8 +39,8 @@ class QuizViewModel(
     private val _uiState = MutableStateFlow(QuizUiState())
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
-    private val _quizResult = MutableStateFlow<QuizResult?>(null)
-    val quizResult: StateFlow<QuizResult?> = _quizResult.asStateFlow()
+    private val _shouldNavigateToResult = MutableStateFlow(false)
+    val shouldNavigateToResult: StateFlow<Boolean> = _shouldNavigateToResult.asStateFlow()
 
     init {
         loadQuestions()
@@ -96,13 +96,23 @@ class QuizViewModel(
             0
         }
 
-        _quizResult.value = QuizResult(
+        val result = QuizResult(
             totalQuestions = questions.size,
             correctCount = correctCount,
             wrongCount = wrongCount,
             score = score,
             resultItems = resultItems
         )
+        
+        // Save to session view model
+        sessionViewModel.setQuizResult(result)
+        
+        // Trigger navigation
+        _shouldNavigateToResult.value = true
+    }
+    
+    fun onNavigatedToResult() {
+        _shouldNavigateToResult.value = false
     }
 
     fun getAnsweredCount(): Int {

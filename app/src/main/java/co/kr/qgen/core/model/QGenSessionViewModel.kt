@@ -1,5 +1,6 @@
 package co.kr.qgen.core.model
 
+import co.kr.qgen.feature.quiz.QuizResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,14 +15,22 @@ class QGenSessionViewModel {
     private val _currentMetadata = MutableStateFlow<QuestionSetMetadata?>(null)
     val currentMetadata: StateFlow<QuestionSetMetadata?> = _currentMetadata.asStateFlow()
 
+    private val _quizResult = MutableStateFlow<QuizResult?>(null)
+    val quizResult: StateFlow<QuizResult?> = _quizResult.asStateFlow()
+
     fun setCurrentQuestionSet(questions: List<Question>, metadata: QuestionSetMetadata) {
         _currentQuestions.value = questions
         _currentMetadata.value = metadata
     }
 
+    fun setQuizResult(result: QuizResult) {
+        _quizResult.value = result
+    }
+
     fun clearQuestionSet() {
         _currentQuestions.value = emptyList()
         _currentMetadata.value = null
+        _quizResult.value = null
     }
 }
 

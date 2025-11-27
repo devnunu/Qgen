@@ -27,11 +27,12 @@ fun QuizScreen(
     onNavigateToResult: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val quizResult by viewModel.quizResult.collectAsStateWithLifecycle()
+    val shouldNavigateToResult by viewModel.shouldNavigateToResult.collectAsStateWithLifecycle()
 
     // Navigate when quiz is submitted
-    LaunchedEffect(quizResult) {
-        if (quizResult != null) {
+    LaunchedEffect(shouldNavigateToResult) {
+        if (shouldNavigateToResult) {
+            viewModel.onNavigatedToResult()
             onNavigateToResult()
         }
     }
