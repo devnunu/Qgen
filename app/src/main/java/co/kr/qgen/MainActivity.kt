@@ -20,7 +20,7 @@ import co.kr.qgen.feature.generation.GenerationScreen
 import co.kr.qgen.feature.home.HomeScreen
 import co.kr.qgen.feature.quiz.QuizScreen
 import co.kr.qgen.feature.result.ResultScreen
-import co.kr.qgen.ui.theme.QgenTheme
+import co.kr.qgen.core.ui.theme.QGenExamTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            QgenTheme {
+            QGenExamTheme {
                 QGenApp()
             }
         }

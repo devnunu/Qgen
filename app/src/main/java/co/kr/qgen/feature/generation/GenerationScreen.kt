@@ -2,20 +2,19 @@ package co.kr.qgen.feature.generation
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.kr.qgen.core.model.Difficulty
 import co.kr.qgen.core.model.Language
 import co.kr.qgen.core.model.TopicPreset
-import co.kr.qgen.core.ui.theme.QGenExamTheme
-import co.kr.qgen.core.ui.theme.examPaperBackground
+import co.kr.qgen.core.ui.components.ExamButton
+import co.kr.qgen.core.ui.components.ExamFilterButton
+import co.kr.qgen.core.ui.theme.*
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -38,28 +37,22 @@ fun GenerationScreen(
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
             .examPaperBackground()
             .verticalScroll(rememberScrollState())
-            .padding(QGenExamTheme.Dimensions.screenPadding),
-        verticalArrangement = Arrangement.spacedBy(QGenExamTheme.Dimensions.sectionSpacing)
+            .padding(ExamDimensions.ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(ExamDimensions.SectionSpacing)
     ) {
         // Title
         Text(
-            text = "QGen",
-            style = QGenExamTheme.Typography.screenTitleStyle
-        )
-        
-        Text(
-            text = "문제 생성",
-            style = QGenExamTheme.Typography.sectionHeaderStyle
+            text = "QGen 모의고사 생성",
+            style = ExamTypography.examTitleTextStyle
         )
 
         // Topic Input
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 "주제",
-                style = QGenExamTheme.Typography.labelTextStyle
+                style = ExamTypography.examLabelTextStyle
             )
             OutlinedTextField(
                 value = uiState.topic,
@@ -68,98 +61,64 @@ fun GenerationScreen(
                 placeholder = { 
                     Text(
                         "예: Android Coroutines",
-                        style = QGenExamTheme.Typography.bodyTextStyle,
-                        color = QGenExamTheme.Colors.TextTertiary
+                        style = ExamTypography.examBodyTextStyle
                     )
                 },
                 enabled = !uiState.isLoading,
-                textStyle = QGenExamTheme.Typography.bodyTextStyle,
+                textStyle = ExamTypography.examBodyTextStyle,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = QGenExamTheme.Colors.ExamBorder,
-                    unfocusedBorderColor = QGenExamTheme.Colors.DividerColor,
-                    focusedContainerColor = QGenExamTheme.Colors.CardBackground,
-                    unfocusedContainerColor = QGenExamTheme.Colors.CardBackground
-                )
+                    focusedBorderColor = ExamColors.ExamBorderGray,
+                    unfocusedBorderColor = ExamColors.ExamButtonBorder,
+                    focusedContainerColor = ExamColors.ExamCardBackground,
+                    unfocusedContainerColor = ExamColors.ExamCardBackground
+                ),
+                shape = ExamShapes.ButtonShape
             )
 
-            // Topic Presets
+            // Topic Presets - ExamFilterButton
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 TopicPreset.entries.forEach { preset ->
-                    FilterChip(
-                        selected = uiState.selectedPreset == preset,
+                    ExamFilterButton(
+                        text = preset.displayName,
+                        isSelected = uiState.selectedPreset == preset,
                         onClick = { viewModel.onPresetSelected(preset) },
-                        label = { 
-                            Text(
-                                preset.displayName,
-                                style = QGenExamTheme.Typography.smallTextStyle
-                            )
-                        },
-                        enabled = !uiState.isLoading,
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = QGenExamTheme.Colors.CardBackground,
-                            selectedContainerColor = QGenExamTheme.Colors.ExamBorder,
-                            labelColor = QGenExamTheme.Colors.TextPrimary,
-                            selectedLabelColor = Color.White
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = !uiState.isLoading,
-                            selected = uiState.selectedPreset == preset,
-                            borderColor = QGenExamTheme.Colors.DividerColor,
-                            selectedBorderColor = QGenExamTheme.Colors.ExamBorder
-                        )
+                        enabled = !uiState.isLoading
                     )
                 }
             }
         }
 
-        // Difficulty
+        // Difficulty - ExamFilterButton
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("난이도", style = QGenExamTheme.Typography.labelTextStyle)
+            Text("난이도", style = ExamTypography.examLabelTextStyle)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Difficulty.entries.forEach { difficulty ->
-                    FilterChip(
-                        selected = uiState.difficulty == difficulty,
+                    ExamFilterButton(
+                        text = difficulty.displayName,
+                        isSelected = uiState.difficulty == difficulty,
                         onClick = { viewModel.onDifficultyChanged(difficulty) },
-                        label = { 
-                            Text(
-                                difficulty.displayName,
-                                style = QGenExamTheme.Typography.smallTextStyle
-                            )
-                        },
-                        enabled = !uiState.isLoading,
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = QGenExamTheme.Colors.CardBackground,
-                            selectedContainerColor = QGenExamTheme.Colors.ExamBorder,
-                            labelColor = QGenExamTheme.Colors.TextPrimary,
-                            selectedLabelColor = Color.White
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = !uiState.isLoading,
-                            selected = uiState.difficulty == difficulty,
-                            borderColor = QGenExamTheme.Colors.DividerColor,
-                            selectedBorderColor = QGenExamTheme.Colors.ExamBorder
-                        )
+                        enabled = !uiState.isLoading
                     )
                 }
             }
         }
 
-        // Count
+        // Count - Slider (최소 디자인)
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("문항 수", style = QGenExamTheme.Typography.labelTextStyle)
+                Text("문항 수", style = ExamTypography.examLabelTextStyle)
                 Text(
                     "${uiState.count}문항",
-                    style = QGenExamTheme.Typography.bodyTextStyle
+                    style = ExamTypography.examBodyTextStyle
                 )
             }
             Slider(
@@ -169,77 +128,51 @@ fun GenerationScreen(
                 steps = 48,
                 enabled = !uiState.isLoading,
                 colors = SliderDefaults.colors(
-                    thumbColor = QGenExamTheme.Colors.ExamBorder,
-                    activeTrackColor = QGenExamTheme.Colors.ExamBorder,
-                    inactiveTrackColor = QGenExamTheme.Colors.DividerColor
+                    thumbColor = ExamColors.ExamBorderGray,
+                    activeTrackColor = ExamColors.ExamBorderGray,
+                    inactiveTrackColor = ExamColors.DividerColor
                 )
             )
         }
 
-        // Choice Count
+        // Choice Count - ExamFilterButton
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("보기 개수", style = QGenExamTheme.Typography.labelTextStyle)
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = uiState.choiceCount == 4,
-                        onClick = { viewModel.onChoiceCountChanged(4) },
-                        enabled = !uiState.isLoading,
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = QGenExamTheme.Colors.ExamBorder,
-                            unselectedColor = QGenExamTheme.Colors.DividerColor
-                        )
-                    )
-                    Text("4지선다", style = QGenExamTheme.Typography.bodyTextStyle)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = uiState.choiceCount == 5,
-                        onClick = { viewModel.onChoiceCountChanged(5) },
-                        enabled = !uiState.isLoading,
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = QGenExamTheme.Colors.ExamBorder,
-                            unselectedColor = QGenExamTheme.Colors.DividerColor
-                        )
-                    )
-                    Text("5지선다", style = QGenExamTheme.Typography.bodyTextStyle)
-                }
+            Text("보기 개수", style = ExamTypography.examLabelTextStyle)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExamFilterButton(
+                    text = "4지선다",
+                    isSelected = uiState.choiceCount == 4,
+                    onClick = { viewModel.onChoiceCountChanged(4) },
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier.weight(1f)
+                )
+                ExamFilterButton(
+                    text = "5지선다",
+                    isSelected = uiState.choiceCount == 5,
+                    onClick = { viewModel.onChoiceCountChanged(5) },
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
-        // Language
+        // Language - ExamFilterButton
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("문제 언어", style = QGenExamTheme.Typography.labelTextStyle)
+            Text("문제 언어", style = ExamTypography.examLabelTextStyle)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Language.entries.forEach { language ->
-                    FilterChip(
-                        selected = uiState.language == language,
+                    ExamFilterButton(
+                        text = language.displayName,
+                        isSelected = uiState.language == language,
                         onClick = { viewModel.onLanguageChanged(language) },
-                        label = { 
-                            Text(
-                                language.displayName,
-                                style = QGenExamTheme.Typography.smallTextStyle
-                            )
-                        },
                         enabled = !uiState.isLoading,
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = QGenExamTheme.Colors.CardBackground,
-                            selectedContainerColor = QGenExamTheme.Colors.ExamBorder,
-                            labelColor = QGenExamTheme.Colors.TextPrimary,
-                            selectedLabelColor = Color.White
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = !uiState.isLoading,
-                            selected = uiState.language == language,
-                            borderColor = QGenExamTheme.Colors.DividerColor,
-                            selectedBorderColor = QGenExamTheme.Colors.ExamBorder
-                        )
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
         }
 
-        // Mock API Toggle (Debug)
+        // Mock API Toggle
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -247,66 +180,38 @@ fun GenerationScreen(
         ) {
             Text(
                 "Mock API 사용 (개발용)",
-                style = QGenExamTheme.Typography.bodyTextStyle
+                style = ExamTypography.examSmallTextStyle
             )
             Switch(
                 checked = uiState.useMockApi,
                 onCheckedChange = { viewModel.onMockApiToggled(it) },
                 enabled = !uiState.isLoading,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = QGenExamTheme.Colors.CardBackground,
-                    checkedTrackColor = QGenExamTheme.Colors.ExamBorder,
-                    uncheckedThumbColor = QGenExamTheme.Colors.CardBackground,
-                    uncheckedTrackColor = QGenExamTheme.Colors.DividerColor
+                    checkedThumbColor = ExamColors.ExamCardBackground,
+                    checkedTrackColor = ExamColors.ExamBorderGray,
+                    uncheckedThumbColor = ExamColors.ExamCardBackground,
+                    uncheckedTrackColor = ExamColors.DividerColor
                 )
             )
         }
 
-        // Generate Button
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
+        // Generate Button - ExamButton (CTA)
+        ExamButton(
+            text = "문제 생성하기",
             onClick = { viewModel.onGenerateClicked() },
             enabled = !uiState.isLoading && uiState.topic.isNotBlank(),
-            color = QGenExamTheme.Colors.ExamBorder,
-            shape = RoundedCornerShape(0.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (uiState.isLoading) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White
-                        )
-                        Text(
-                            "생성 중...",
-                            style = QGenExamTheme.Typography.buttonTextStyle,
-                            color = Color.White
-                        )
-                    }
-                } else {
-                    Text(
-                        "문제 생성하기",
-                        style = QGenExamTheme.Typography.buttonTextStyle,
-                        color = Color.White
-                    )
-                }
-            }
-        }
+            isLoading = uiState.isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        )
 
         // Error Message
         if (uiState.errorMessage != null) {
             Text(
                 text = uiState.errorMessage!!,
-                color = QGenExamTheme.Colors.ErrorColor,
-                style = QGenExamTheme.Typography.bodyTextStyle
+                color = ExamColors.ErrorColor,
+                style = ExamTypography.examBodyTextStyle
             )
         }
     }
