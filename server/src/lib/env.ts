@@ -3,9 +3,7 @@ export const env = {
 };
 
 export function validateEnv() {
-    // TODO: Add detailed validation logic here
-    // Example:
-    // if (!env.OPENAI_API_KEY) {
-    //   throw new Error("Missing OPENAI_API_KEY");
-    // }
+    if (!env.OPENAI_API_KEY) {
+        throw new Error("Missing OPENAI_API_KEY environment variable");
+    }
 }
