@@ -117,14 +117,12 @@ fun QuestionPage(
             .padding(ExamDimensions.ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(ExamDimensions.SectionSpacing)
     ) {
-        // Question Box
-        ExamQuestionContainer {
-            ExamQuestionHeader(
-                number = questionNumber,
-                questionText = question.stem,
-                points = points
-            )
-        }
+        // Question Header (텍스트만)
+        ExamQuestionHeader(
+            number = questionNumber,
+            questionText = question.stem,
+            points = points
+        )
 
         // Choices
         Column(verticalArrangement = Arrangement.spacedBy(ExamDimensions.ChoiceSpacing)) {
