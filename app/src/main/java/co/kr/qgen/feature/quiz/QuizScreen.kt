@@ -1,11 +1,9 @@
 package co.kr.qgen.feature.quiz
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -13,10 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.kr.qgen.core.model.Question
+import co.kr.qgen.core.ui.theme.QGenExamTheme
+import co.kr.qgen.core.ui.theme.examPaperBackground
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -65,20 +65,30 @@ fun QuizScreen(
     }
 
     Scaffold(
+        modifier = Modifier.examPaperBackground(),
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("문제 ${pagerState.currentPage + 1} / ${uiState.questions.size}")
-                        LinearProgressIndicator(
-                            progress = { (pagerState.currentPage + 1).toFloat() / uiState.questions.size },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp)
-                        )
-                    }
+            Surface(
+                color = QGenExamTheme.Colors.CardBackground,
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(QGenExamTheme.Dimensions.screenPadding)
+                ) {
+                    Text(
+                        "문제 ${pagerState.currentPage + 1} / ${uiState.questions.size}",
+                        style = QGenExamTheme.Typography.sectionHeaderStyle
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { (pagerState.currentPage + 1).toFloat() / uiState.questions.size },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = QGenExamTheme.Colors.ExamBorder,
+                        trackColor = QGenExamTheme.Colors.DividerColor
+                    )
                 }
-            )
+            }
         },
         bottomBar = {
             QuizBottomBar(
@@ -110,6 +120,7 @@ fun QuizScreen(
                 .padding(paddingValues)
         ) { page ->
             QuestionPage(
+                questionNumber = page + 1,
                 question = uiState.questions[page],
                 selectedAnswer = uiState.userAnswers[uiState.questions[page].id],
                 onAnswerSelected = { choiceId ->
@@ -122,83 +133,18 @@ fun QuizScreen(
 
 @Composable
 fun QuestionPage(
+    questionNumber: Int,
     question: Question,
     selectedAnswer: String?,
     onAnswerSelected: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Question Stem
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = question.stem,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-
-        // Choices
-        Text(
-            text = "답을 선택하세요",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        question.choices.forEach { choice ->
-            ChoiceCard(
-                choice = choice,
-                isSelected = selectedAnswer == choice.id,
-                onSelected = { onAnswerSelected(choice.id) }
-            )
-        }
-    }
-}
-
-@Composable
-fun ChoiceCard(
-    choice: co.kr.qgen.core.model.QuestionChoice,
-    isSelected: Boolean,
-    onSelected: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(
-                selected = isSelected,
-                onClick = onSelected,
-                role = Role.RadioButton
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = null
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "${choice.id}. ${choice.text}",
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-    }
+    co.kr.qgen.core.ui.components.ExamQuestionLayout(
+        questionNumber = questionNumber,
+        question = question,
+        selectedAnswer = selectedAnswer,
+        onAnswerSelected = onAnswerSelected,
+        points = 4 // Can be dynamic based on question metadata
+    )
 }
 
 @Composable
@@ -211,17 +157,18 @@ fun QuizBottomBar(
     onSubmit: () -> Unit
 ) {
     Surface(
-        tonalElevation = 3.dp
+        color = QGenExamTheme.Colors.CardBackground,
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(QGenExamTheme.Dimensions.screenPadding)
         ) {
             Text(
                 text = "답변한 문제: $answeredCount / $totalPages",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
+                style = QGenExamTheme.Typography.bodyTextStyle,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
 
             Row(
@@ -231,24 +178,38 @@ fun QuizBottomBar(
                 // Previous Button
                 OutlinedButton(
                     onClick = onPrevious,
-                    enabled = currentPage > 0
+                    enabled = currentPage > 0,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = QGenExamTheme.Colors.TextPrimary
+                    ),
+                    border = BorderStroke(1.dp, QGenExamTheme.Colors.ExamBorder)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전")
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("이전")
+                    Text("이전", style = QGenExamTheme.Typography.buttonTextStyle)
                 }
 
                 // Submit or Next Button
                 if (currentPage == totalPages - 1) {
                     Button(
                         onClick = onSubmit,
-                        enabled = answeredCount == totalPages
+                        enabled = answeredCount == totalPages,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = QGenExamTheme.Colors.ExamBorder,
+                            contentColor = Color.White
+                        )
                     ) {
-                        Text("채점하기")
+                        Text("채점하기", style = QGenExamTheme.Typography.buttonTextStyle)
                     }
                 } else {
-                    Button(onClick = onNext) {
-                        Text("다음")
+                    Button(
+                        onClick = onNext,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = QGenExamTheme.Colors.ExamBorder,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("다음", style = QGenExamTheme.Typography.buttonTextStyle)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음")
                     }
