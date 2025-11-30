@@ -279,7 +279,6 @@ CRITICAL CONSTRAINTS:
 - Each question MUST have EXACTLY ONE choice with "isCorrect": true
 - All other choices MUST have "isCorrect": false
 - The "reason" field should be 1-2 sentences explaining why this choice is correct/incorrect
-- The "explanation" field should summarize the overall reasoning
 - Each question must use exactly ${choiceCount} choices
 - Language: ${language === "ko" ? "Korean" : "English"}
 - For CODE type questions: MUST include actual code in the "stem" field
@@ -289,6 +288,30 @@ CRITICAL CONSTRAINTS:
 - DO NOT wrap the JSON response in \`\`\`json...\`\`\` blocks
 - DO NOT include any text before or after the JSON object
 - Ensure all strings are properly JSON-escaped (use \\\\ for backslash, \\" for quotes, \\n for newlines)
+
+EXPLANATION QUALITY REQUIREMENTS (모든 난이도 공통):
+The "explanation" field is critical for learning and MUST follow these rules:
+
+1. Structure (3-6 sentences recommended):
+   - First: Briefly mention the core concept/rule being tested
+   - Second: Explain the logical reasoning to reach the correct answer (1-3 steps)
+   - Third: Mention why incorrect choices are wrong
+
+2. For multi-statement questions (ㄱ,ㄴ,ㄷ,ㄹ style or numbered statements):
+   - If the question stem or choices contain statements like "ㄱ. ~", "ㄴ. ~", "ㄷ. ~", "ㄹ. ~"
+   - OR numbered statements like "(1) ~", "(2) ~", "(3) ~"
+   - The explanation MUST include a breakdown for EACH statement:
+     - Example format:
+       "ㄱ: 참이다. 이유는 [1-2 sentences]"
+       "ㄴ: 거짓이다. 이유는 [1-2 sentences]"
+       "ㄷ: 참이다. 이유는 [1-2 sentences]"
+       "ㄹ: 거짓이다. 이유는 [1-2 sentences]"
+   - For numbered statements: "1번 진술: [correct/incorrect]. 이유는 ~"
+   - This ensures students understand WHY each individual statement is true or false
+
+3. Avoid single-sentence explanations:
+   - Do NOT just say "정답은 A이다" or "B가 틀렸기 때문"
+   - Always explain the reasoning process, not just the result
 `.trim();
 
     // 5. User 메시지: 구체적인 요청 사항
@@ -473,6 +496,13 @@ CRITICAL CONSTRAINTS:
 - All other choices must have "isCorrect": false
 - The "reason" field should be 1-2 sentences
 - NO Markdown, NO extra text - ONLY JSON
+
+EXPLANATION QUALITY REQUIREMENTS:
+The "explanation" must be detailed (3-6 sentences):
+- Mention the core concept being tested
+- Explain the logical reasoning to reach the correct answer
+- For multi-statement questions (ㄱ,ㄴ,ㄷ,ㄹ or numbered), break down EACH statement with reason
+- Example: "ㄱ: 참이다. 이유는 ~" / "ㄴ: 거짓이다. 이유는 ~"
 `.trim();
 
     const userPrompt = `

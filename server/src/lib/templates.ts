@@ -228,9 +228,13 @@ export function getTemplateGuidelines(templates: ProblemTemplate[]): string {
                 break;
             case "compare":
                 guide += "\n  형식: '다음 중 A와 B의 차이점으로 옳은 것은?' 또는 '~의 장점으로 옳지 않은 것은?'";
+                guide += "\n  해설 요구사항: 각 보기의 핵심 차이점을 명확히 설명해야 함";
                 break;
             case "multiple_true":
                 guide += "\n  형식: '다음 설명 중 옳은 것을 모두 고르면?' (보기에 번호 조합 제시)";
+                guide += "\n  이 유형은 보통 'ㄱ, ㄴ, ㄷ, ㄹ' 또는 번호가 붙은 여러 진술을 제시하고, 옳은 것/틀린 것의 조합을 고르게 함";
+                guide += "\n  **해설 필수 요구사항**: 각 진술(ㄱ, ㄴ, ㄷ, ㄹ 등)에 대해 참/거짓 여부와 이유를 한 줄씩 명확하게 설명할 것";
+                guide += "\n  예시: 'ㄱ: 참이다. 이유는 ~', 'ㄴ: 거짓이다. 이유는 ~'";
                 break;
         }
 

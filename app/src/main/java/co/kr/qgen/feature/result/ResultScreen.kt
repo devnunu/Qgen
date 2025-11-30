@@ -228,15 +228,13 @@ fun ResultItemView(number: Int, item: co.kr.qgen.feature.quiz.ResultItem) {
             }
         }
         
-        // Explanation (if wrong)
-        if (!item.isCorrect) {
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = ExamColors.ExamBorderGray, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "해설: ${item.question.explanation.unescapeString()}",
-                style = ExamTypography.examBodyTextStyle.copy(fontWeight = FontWeight.Medium)
-            )
-        }
+        // Explanation (always show)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = ExamColors.ExamBorderGray, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "해설: ${item.question.explanation.unescapeString()}",
+            style = ExamTypography.examBodyTextStyle.copy(fontWeight = FontWeight.Medium)
+        )
     }
 }
