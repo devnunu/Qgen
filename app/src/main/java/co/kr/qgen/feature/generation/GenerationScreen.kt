@@ -156,7 +156,7 @@ fun GenerationScreen(
                     shape = ExamShapes.ButtonShape,
                     supportingText = {
                         Text(
-                            "${uiState.topic.length}/15",
+                            "${uiState.topic.length}/30",
                             style = ExamTypography.examSmallTextStyle,
                             color = ExamColors.ExamTextSecondary
                         )

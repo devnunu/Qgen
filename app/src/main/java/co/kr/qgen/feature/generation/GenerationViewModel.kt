@@ -50,8 +50,8 @@ class GenerationViewModel(
     val sideEffects = _sideEffects.receiveAsFlow()
 
     fun onTopicChanged(topic: String) {
-        // 15자 제한
-        val limited = topic.take(15)
+        // 30자 제한
+        val limited = topic.take(30)
         _uiState.update { it.copy(topic = limited) }
     }
 
