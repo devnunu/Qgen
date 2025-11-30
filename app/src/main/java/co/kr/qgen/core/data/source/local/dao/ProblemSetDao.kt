@@ -12,6 +12,9 @@ interface ProblemSetDao {
     @Query("SELECT * FROM problem_sets ORDER BY createdAt DESC")
     fun getAllSets(): Flow<List<ProblemSetEntity>>
 
+    @Query("SELECT * FROM problem_sets WHERE bookId = :bookId ORDER BY createdAt DESC")
+    fun getSetsByBookId(bookId: String): Flow<List<ProblemSetEntity>>
+
     @Query("SELECT * FROM problem_sets WHERE id = :setId")
     suspend fun getSetById(setId: String): ProblemSetEntity?
 

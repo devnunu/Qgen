@@ -2,8 +2,7 @@ package co.kr.qgen.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import co.kr.qgen.core.data.repository.QuestionRepository
-import co.kr.qgen.core.model.ResultWrapper
+import co.kr.qgen.core.data.repository.ProblemBookRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -11,74 +10,56 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class ProblemSetSummary(
+data class ProblemBookSummary(
     val id: String,
     val title: String,
-    val topic: String,
-    val difficulty: String,
-    val language: String,
-    val count: Int,
     val createdAt: Long,
     val lastPlayedAt: Long?,
-    val score: Int?,
-    val isFavorite: Boolean
+    val totalSets: Int,
+    val totalProblems: Int
 )
 
 data class HomeUiState(
-    val sets: List<ProblemSetSummary> = emptyList(),
-    val isEditing: Boolean = false,
-    val selectedIds: Set<String> = emptySet(),
-    val showFavoritesOnly: Boolean = false,
+    val books: List<ProblemBookSummary> = emptyList(),
     val searchQuery: String = "",
-    val isRegenerating: Boolean = false,
     val errorMessage: String? = null
 )
 
 class HomeViewModel(
-    private val questionRepository: QuestionRepository
+    private val bookRepository: ProblemBookRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
-    private val _showFavoritesOnly = MutableStateFlow(false)
-    private val _isRegenerating = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
+    private val _bookStats = MutableStateFlow<Map<String, Pair<Int, Int>>>(emptyMap())
 
     val uiState: StateFlow<HomeUiState> = combine(
-        questionRepository.getAllProblemSets(),
-        combine(_searchQuery, _showFavoritesOnly) { query, fav -> Pair(query, fav) },
-        _isRegenerating,
+        bookRepository.getAllBooks(),
+        _searchQuery,
+        _bookStats,
         _errorMessage
-    ) { sets, (query, favoritesOnly), regenerating, error ->
-        val summaries = sets.map { entity ->
-            ProblemSetSummary(
+    ) { books, query, stats, error ->
+        val summaries = books.map { entity ->
+            val (setCount, problemCount) = stats[entity.id] ?: Pair(0, 0)
+            ProblemBookSummary(
                 id = entity.id,
-                title = entity.title ?: entity.topic,
-                topic = entity.topic,
-                difficulty = entity.difficulty,
-                language = entity.language,
-                count = entity.count,
+                title = entity.title,
                 createdAt = entity.createdAt,
                 lastPlayedAt = entity.lastPlayedAt,
-                score = entity.score,
-                isFavorite = entity.isFavorite
+                totalSets = setCount,
+                totalProblems = problemCount
             )
         }
 
-        val filteredSets = summaries.filter { summary ->
-            val matchesQuery = if (query.isBlank()) true else {
-                summary.title.contains(query, ignoreCase = true) ||
-                summary.topic.contains(query, ignoreCase = true)
+        val filteredBooks = summaries.filter { summary ->
+            if (query.isBlank()) true else {
+                summary.title.contains(query, ignoreCase = true)
             }
-            val matchesFavorite = if (favoritesOnly) summary.isFavorite else true
-
-            matchesQuery && matchesFavorite
         }
 
         HomeUiState(
-            sets = filteredSets,
+            books = filteredBooks,
             searchQuery = query,
-            showFavoritesOnly = favoritesOnly,
-            isRegenerating = regenerating,
             errorMessage = error
         )
     }.stateIn(
@@ -87,48 +68,51 @@ class HomeViewModel(
         initialValue = HomeUiState()
     )
 
+    init {
+        loadBookStats()
+    }
+
+    private fun loadBookStats() {
+        viewModelScope.launch {
+            bookRepository.getAllBooks().collect { books ->
+                val statsMap = books.associate { book ->
+                    val stats = bookRepository.getBookStats(book.id)
+                    book.id to Pair(stats.totalSets, stats.totalProblems)
+                }
+                _bookStats.value = statsMap
+            }
+        }
+    }
+
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
     }
 
-    fun toggleShowFavoritesOnly() {
-        _showFavoritesOnly.value = !_showFavoritesOnly.value
-    }
-
-    fun toggleFavorite(setId: String) {
+    fun createBook(title: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
-            val currentSet = uiState.value.sets.find { it.id == setId } ?: return@launch
-            questionRepository.toggleFavorite(setId, !currentSet.isFavorite)
-        }
-    }
-
-    fun renameProblemSet(setId: String, newTitle: String) {
-        viewModelScope.launch {
-            questionRepository.updateTitle(setId, newTitle)
-        }
-    }
-
-    fun regenerateProblemSet(setId: String) {
-        viewModelScope.launch {
-            _isRegenerating.value = true
-            _errorMessage.value = null
-            
-            val result = questionRepository.regenerateProblemSet(setId)
-            
-            _isRegenerating.value = false
-            if (result is ResultWrapper.Error) {
-                _errorMessage.value = result.message ?: "재생성에 실패했습니다"
+            try {
+                val bookId = bookRepository.createBook(title)
+                loadBookStats() // Refresh stats
+                onSuccess(bookId)
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "문제집 생성에 실패했습니다"
             }
         }
     }
-    
-    fun clearErrorMessage() {
-        _errorMessage.value = null
+
+    fun renameBook(bookId: String, newTitle: String) {
+        viewModelScope.launch {
+            bookRepository.updateBookTitle(bookId, newTitle)
+        }
     }
 
-    fun deleteProblemSet(setId: String) {
+    fun deleteBook(bookId: String) {
         viewModelScope.launch {
-            questionRepository.deleteProblemSet(setId)
+            bookRepository.deleteBook(bookId)
         }
+    }
+
+    fun clearErrorMessage() {
+        _errorMessage.value = null
     }
 }

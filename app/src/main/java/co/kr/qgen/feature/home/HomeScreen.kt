@@ -16,8 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,7 +26,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Snackbar
@@ -58,24 +55,62 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel(),
-    onNavigateToQuiz: (String) -> Unit,
-    onNavigateToGeneration: () -> Unit
+    onNavigateToBookDetail: (String) -> Unit,
+    onNavigateToCreateBook: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    var showCreateDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf<String?>(null) }
-    var showRegenerateDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
-    
+
+    // Create Book Dialog
+    if (showCreateDialog) {
+        var title by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text("새 문제집 만들기") },
+            text = {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("문제집 이름") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.createBook(title) { bookId ->
+                            showCreateDialog = false
+                            onNavigateToBookDetail(bookId)
+                        }
+                    },
+                    enabled = title.isNotBlank()
+                ) {
+                    Text("만들기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text("취소")
+                }
+            },
+            containerColor = ExamColors.ExamCardBackground
+        )
+    }
+
     // Rename Dialog
     if (showRenameDialog != null) {
-        val setId = showRenameDialog!!
-        val currentTitle = uiState.sets.find { it.id == setId }?.title ?: ""
+        val bookId = showRenameDialog!!
+        val currentTitle = uiState.books.find { it.id == bookId }?.title ?: ""
         var newTitle by remember { mutableStateOf(currentTitle) }
-        
+
         AlertDialog(
             onDismissRequest = { showRenameDialog = null },
-            title = { Text("세트 이름 변경") },
+            title = { Text("문제집 이름 변경") },
             text = {
                 OutlinedTextField(
                     value = newTitle,
@@ -87,7 +122,7 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.renameProblemSet(setId, newTitle)
+                        viewModel.renameBook(bookId, newTitle)
                         showRenameDialog = null
                     }
                 ) {
@@ -102,46 +137,31 @@ fun HomeScreen(
             containerColor = ExamColors.ExamCardBackground
         )
     }
-    
-    // Regenerate Dialog
-    if (showRegenerateDialog != null) {
-        val setId = showRegenerateDialog!!
-
-        AlertDialog(
-            onDismissRequest = { showRegenerateDialog = null },
-            title = { Text("문제 다시 생성하기") },
-            text = { Text("이 세트의 문제들을 모두 새로 생성합니다. 기존 문제들은 삭제됩니다. 계속하시겠습니까?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.regenerateProblemSet(setId)
-                        showRegenerateDialog = null
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRegenerateDialog = null }) {
-                    Text("취소")
-                }
-            },
-            containerColor = ExamColors.ExamCardBackground
-        )
-    }
 
     // Delete Dialog
     if (showDeleteDialog != null) {
-        val setId = showDeleteDialog!!
+        val bookId = showDeleteDialog!!
+        val book = uiState.books.find { it.id == bookId }
 
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text("세트 삭제") },
-            text = { Text("이 세트를 삭제하시겠습니까? 삭제된 세트는 복구할 수 없습니다.") },
+            title = { Text("문제집 삭제") },
+            text = {
+                Column {
+                    Text("이 문제집을 삭제하시겠습니까?")
+                    if (book != null && book.totalSets > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "주의: 이 문제집에 포함된 ${book.totalSets}개의 문제 세트와 ${book.totalProblems}개의 문제가 함께 삭제됩니다.",
+                            color = ExamColors.ErrorColor
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteProblemSet(setId)
+                        viewModel.deleteBook(bookId)
                         showDeleteDialog = null
                     }
                 ) {
@@ -164,18 +184,9 @@ fun HomeScreen(
                     title = { Text("내 문제집", style = ExamTypography.examTitleTextStyle) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = ExamColors.ExamBackground
-                    ),
-                    actions = {
-                        IconButton(onClick = { viewModel.toggleShowFavoritesOnly() }) {
-                            Icon(
-                                imageVector = if (uiState.showFavoritesOnly) Icons.Filled.Star else Icons.Outlined.Star,
-                                contentDescription = "즐겨찾기 필터",
-                                tint = if (uiState.showFavoritesOnly) ExamColors.ExamAccent else ExamColors.ExamTextSecondary
-                            )
-                        }
-                    }
+                    )
                 )
-                
+
                 // Search Bar
                 OutlinedTextField(
                     value = uiState.searchQuery,
@@ -183,7 +194,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("세트 이름, 주제 검색") },
+                    placeholder = { Text("문제집 이름 검색") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -198,36 +209,30 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNavigateToGeneration,
+                onClick = { showCreateDialog = true },
                 containerColor = ExamColors.ExamAccent,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "문제 생성")
+                Icon(Icons.Default.Add, contentDescription = "문제집 만들기")
             }
         },
         containerColor = ExamColors.ExamBackground
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            if (uiState.isRegenerating) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(uiState.sets) { set ->
-                    ProblemSetCard(
-                        summary = set,
-                        onClick = { onNavigateToQuiz(set.id) },
-                        onFavoriteClick = { viewModel.toggleFavorite(set.id) },
-                        onRenameClick = { showRenameDialog = set.id },
-                        onRegenerateClick = { showRegenerateDialog = set.id },
-                        onDeleteClick = { showDeleteDialog = set.id }
+                items(uiState.books) { book ->
+                    ProblemBookCard(
+                        summary = book,
+                        onClick = { onNavigateToBookDetail(book.id) },
+                        onRenameClick = { showRenameDialog = book.id },
+                        onDeleteClick = { showDeleteDialog = book.id }
                     )
                 }
             }
-            
+
             // Error Snackbar
             if (uiState.errorMessage != null) {
                 Snackbar(
@@ -248,16 +253,14 @@ fun HomeScreen(
 }
 
 @Composable
-fun ProblemSetCard(
-    summary: ProblemSetSummary,
+fun ProblemBookCard(
+    summary: ProblemBookSummary,
     onClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
     onRenameClick: () -> Unit,
-    onRegenerateClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    
+
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = ExamColors.ExamCardBackground),
@@ -278,56 +281,44 @@ fun ProblemSetCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${summary.count}문항 • ${summary.difficulty} • ${SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(Date(summary.createdAt))}",
+                        text = "${summary.totalSets}개 세트 • ${summary.totalProblems}문항 • ${
+                            SimpleDateFormat(
+                                "yyyy.MM.dd",
+                                Locale.getDefault()
+                            ).format(Date(summary.createdAt))
+                        }",
                         style = ExamTypography.examSmallTextStyle,
                         color = ExamColors.ExamTextSecondary
                     )
                 }
-                
-                Row {
-                    IconButton(onClick = onFavoriteClick) {
+
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
                         Icon(
-                            imageVector = if (summary.isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                            contentDescription = "즐겨찾기",
-                            tint = if (summary.isFavorite) ExamColors.ExamAccent else ExamColors.ExamTextSecondary
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "메뉴",
+                            tint = ExamColors.ExamTextSecondary
                         )
                     }
-                    
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "메뉴",
-                                tint = ExamColors.ExamTextSecondary
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.background(ExamColors.ExamCardBackground)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("문제 다시 생성하기") },
-                                onClick = {
-                                    showMenu = false
-                                    onRegenerateClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("세트 이름 변경하기") },
-                                onClick = {
-                                    showMenu = false
-                                    onRenameClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("세트 삭제하기", color = ExamColors.ErrorColor) },
-                                onClick = {
-                                    showMenu = false
-                                    onDeleteClick()
-                                }
-                            )
-                        }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(ExamColors.ExamCardBackground)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("이름 변경하기") },
+                            onClick = {
+                                showMenu = false
+                                onRenameClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("삭제하기", color = ExamColors.ErrorColor) },
+                            onClick = {
+                                showMenu = false
+                                onDeleteClick()
+                            }
+                        )
                     }
                 }
             }

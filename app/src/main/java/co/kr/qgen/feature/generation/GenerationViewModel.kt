@@ -1,5 +1,6 @@
 package co.kr.qgen.feature.generation
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.kr.qgen.core.data.repository.QuestionRepository
@@ -35,8 +36,11 @@ sealed class GenerationSideEffect {
 class GenerationViewModel(
     private val questionRepository: QuestionRepository,
     private val sessionViewModel: QGenSessionViewModel,
-    private val inMemoryDataSource: InMemoryDataSource
+    private val inMemoryDataSource: InMemoryDataSource,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val bookId: String? = savedStateHandle["bookId"]
 
     private val _uiState = MutableStateFlow(GenerationUiState())
     val uiState: StateFlow<GenerationUiState> = _uiState.asStateFlow()
@@ -101,6 +105,13 @@ class GenerationViewModel(
             return
         }
 
+        if (bookId.isNullOrBlank()) {
+            viewModelScope.launch {
+                _sideEffects.send(GenerationSideEffect.ShowError("문제집을 선택해주세요"))
+            }
+            return
+        }
+
         // 최근 검색어 추가
         addRecentTopic(state.topic)
 
@@ -112,7 +123,7 @@ class GenerationViewModel(
             choiceCount = state.choiceCount,
             language = state.language.value
         )
-        inMemoryDataSource.savePendingRequest(request, null)
+        inMemoryDataSource.savePendingRequest(request, bookId, null)
 
         // 로딩 화면으로 이동
         viewModelScope.launch {

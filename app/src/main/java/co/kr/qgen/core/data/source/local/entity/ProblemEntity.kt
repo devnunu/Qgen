@@ -23,5 +23,10 @@ data class ProblemEntity(
     val stem: String,
     val correctChoiceId: String,
     val explanation: String,
-    val difficulty: String
+    val difficulty: String,
+
+    // 통계 필드
+    val solvedCount: Int = 0,
+    val correctCount: Int = 0,
+    val lastAnsweredAt: Long? = null
 )

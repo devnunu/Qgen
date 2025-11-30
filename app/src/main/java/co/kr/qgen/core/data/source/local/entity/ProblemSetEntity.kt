@@ -1,11 +1,25 @@
 package co.kr.qgen.core.data.source.local.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "problem_sets")
+@Entity(
+    tableName = "problem_sets",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProblemBookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("bookId")]
+)
 data class ProblemSetEntity(
     @PrimaryKey val id: String,
+    val bookId: String,
     val topic: String,
     val difficulty: String,
     val language: String,

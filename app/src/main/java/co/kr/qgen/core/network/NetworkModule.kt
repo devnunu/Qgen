@@ -2,6 +2,7 @@ package co.kr.qgen.core.network
 
 import co.kr.qgen.BuildConfig
 import co.kr.qgen.core.model.QGenSessionViewModel
+import co.kr.qgen.feature.bookdetail.BookDetailViewModel
 import co.kr.qgen.feature.generation.GenerationViewModel
 import co.kr.qgen.feature.home.HomeViewModel
 import co.kr.qgen.feature.loading.LoadingViewModel
@@ -57,8 +58,9 @@ val networkModule = module {
 
 val viewModelModule = module {
     single { QGenSessionViewModel() }
-    viewModel { GenerationViewModel(get(), get(), get()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { GenerationViewModel(get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get()) } // ProblemBookRepository
+    viewModel { BookDetailViewModel(get(), get(), get(), get()) }
     viewModel { LoadingViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get(), get()) }
     viewModel { ResultViewModel(get()) }

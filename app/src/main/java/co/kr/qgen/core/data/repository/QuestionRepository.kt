@@ -28,7 +28,7 @@ interface QuestionRepository {
     suspend fun checkHealth(): ResultWrapper<Boolean>
 
     // Local DB methods
-    suspend fun saveQuestionSet(questions: List<Question>, metadata: QuestionSetMetadata, tags: String?)
+    suspend fun saveQuestionSet(questions: List<Question>, metadata: QuestionSetMetadata, bookId: String, tags: String?)
     fun getAllProblemSets(): Flow<List<ProblemSetEntity>>
     suspend fun toggleFavorite(setId: String, isFavorite: Boolean)
     suspend fun updateTitle(setId: String, title: String)
@@ -36,6 +36,7 @@ interface QuestionRepository {
     suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit>
     suspend fun getQuestionsBySetId(setId: String): List<Question>
     suspend fun deleteProblemSet(setId: String)
+    suspend fun updateProblemStatistics(problemId: String, isCorrect: Boolean)
 }
 
 class QuestionRepositoryImpl(
@@ -90,11 +91,13 @@ class QuestionRepositoryImpl(
     override suspend fun saveQuestionSet(
         questions: List<Question>,
         metadata: QuestionSetMetadata,
+        bookId: String,
         tags: String?
     ) {
         val setId = UUID.randomUUID().toString()
         val problemSet = ProblemSetEntity(
             id = setId,
+            bookId = bookId,
             topic = metadata.topic,
             difficulty = metadata.difficulty,
             language = metadata.language,
@@ -225,5 +228,11 @@ class QuestionRepositoryImpl(
     override suspend fun deleteProblemSet(setId: String) {
         problemDao.deleteProblemsBySetId(setId)
         problemSetDao.deleteSet(setId)
+    }
+
+    override suspend fun updateProblemStatistics(problemId: String, isCorrect: Boolean) {
+        val increment = if (isCorrect) 1 else 0
+        val timestamp = System.currentTimeMillis()
+        problemDao.updateProblemStats(problemId, increment, timestamp)
     }
 }

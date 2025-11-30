@@ -15,10 +15,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import co.kr.qgen.core.ui.theme.QGenExamTheme
+import co.kr.qgen.feature.bookdetail.BookDetailScreen
 import co.kr.qgen.feature.generation.GenerationScreen
 import co.kr.qgen.feature.home.HomeScreen
 import co.kr.qgen.feature.quiz.QuizScreen
@@ -51,11 +54,25 @@ fun QGenApp(modifier: Modifier = Modifier) {
         ) {
             composable("home") {
                 HomeScreen(
-                    onNavigateToQuiz = { setId -> navController.navigate("quiz/$setId") },
-                    onNavigateToGeneration = { navController.navigate("generation") }
+                    onNavigateToBookDetail = { bookId -> navController.navigate("bookDetail/$bookId") },
+                    onNavigateToCreateBook = { }  // Empty - creation is handled in the screen itself
                 )
             }
-            composable("generation") {
+            composable(
+                route = "bookDetail/{bookId}",
+                arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+            ) {
+                BookDetailScreen(
+                    onNavigateToGeneration = { bookId -> navController.navigate("generation/$bookId") },
+                    onNavigateToQuiz = { setId -> navController.navigate("quiz/$setId") },
+                    onNavigateToAdHocQuiz = { navController.navigate("quiz/adhoc") },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "generation/{bookId}",
+                arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+            ) {
                 GenerationScreen(
                     onNavigateToLoading = {
                         navController.navigate("loading")

@@ -51,7 +51,7 @@ class LoadingViewModel(
                 return@launch
             }
 
-            val (request, tags) = pendingData
+            val (request, bookId, tags) = pendingData
             _uiState.update { it.copy(topic = request.topic) }
 
             questionRepository.generateQuestions(request, useMockApi = false)
@@ -65,7 +65,7 @@ class LoadingViewModel(
                             val metadata = result.value.second
 
                             // DB 저장
-                            questionRepository.saveQuestionSet(questions, metadata, tags)
+                            questionRepository.saveQuestionSet(questions, metadata, bookId, tags)
 
                             // 세션에 저장
                             sessionViewModel.setCurrentQuestionSet(questions, metadata)

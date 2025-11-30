@@ -8,20 +8,24 @@ import co.kr.qgen.core.model.GenerateQuestionsRequest
 class InMemoryDataSource {
     private var pendingGenerationRequest: GenerateQuestionsRequest? = null
     private var pendingTags: String? = null
+    private var pendingBookId: String? = null
 
-    fun savePendingRequest(request: GenerateQuestionsRequest, tags: String?) {
+    fun savePendingRequest(request: GenerateQuestionsRequest, bookId: String, tags: String?) {
         pendingGenerationRequest = request
+        pendingBookId = bookId
         pendingTags = tags
     }
 
-    fun getPendingRequest(): Pair<GenerateQuestionsRequest, String?>? {
+    fun getPendingRequest(): Triple<GenerateQuestionsRequest, String, String?>? {
         val request = pendingGenerationRequest ?: return null
+        val bookId = pendingBookId ?: return null
         val tags = pendingTags
-        return Pair(request, tags)
+        return Triple(request, bookId, tags)
     }
 
     fun clearPendingRequest() {
         pendingGenerationRequest = null
+        pendingBookId = null
         pendingTags = null
     }
 }

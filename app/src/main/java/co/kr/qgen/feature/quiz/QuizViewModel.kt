@@ -141,10 +141,19 @@ class QuizViewModel(
             score = score,
             resultItems = resultItems
         )
-        
+
         // Save to session view model
         sessionViewModel.setQuizResult(result)
-        
+
+        // Update statistics for each answered question
+        viewModelScope.launch {
+            resultItems.forEach { item ->
+                if (item.userAnswer != null) {
+                    questionRepository.updateProblemStatistics(item.question.id, item.isCorrect)
+                }
+            }
+        }
+
         // Trigger navigation
         _shouldNavigateToResult.value = true
     }
