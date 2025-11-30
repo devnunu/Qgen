@@ -12,9 +12,6 @@ import co.kr.qgen.core.model.QuestionChoice
 import co.kr.qgen.core.model.QuestionSetMetadata
 import co.kr.qgen.core.model.ResultWrapper
 import co.kr.qgen.core.util.RetryUtil
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
@@ -131,26 +128,41 @@ class QuestionRepositoryImpl(
                 remaining -= currentBatchSize
             }
 
-            // Execute batches in parallel with retry logic
-            var allQuestions = coroutineScope {
-                batches.map { batchRequest ->
-                    async {
-                        RetryUtil.retryWithExponentialBackoff {
-                            val response = if (useMockApi) {
-                                remoteDataSource.generateMockQuestions(batchRequest)
-                            } else {
-                                remoteDataSource.generateQuestions(batchRequest)
-                            }
+            // Execute batches sequentially to track progress
+            val allQuestions = mutableListOf<Question>()
 
-                            if (response.success && response.data != null) {
-                                response.data.questions
-                            } else {
-                                throw Exception(response.error ?: "Failed to generate questions for batch")
-                            }
+            for ((index, batchRequest) in batches.withIndex()) {
+                try {
+                    val questions = RetryUtil.retryWithExponentialBackoff {
+                        val response = if (useMockApi) {
+                            remoteDataSource.generateMockQuestions(batchRequest)
+                        } else {
+                            remoteDataSource.generateQuestions(batchRequest)
+                        }
+
+                        if (response.success && response.data != null) {
+                            response.data.questions
+                        } else {
+                            throw Exception(response.error ?: "Failed to generate questions for batch")
                         }
                     }
-                }.awaitAll().flatten()
-            }.toMutableList()
+
+                    allQuestions.addAll(questions)
+
+                    // Emit progress after each batch
+                    emit(ResultWrapper.Progress(
+                        progress = co.kr.qgen.core.model.BatchProgress(
+                            currentBatch = index + 1,
+                            totalBatches = batches.size,
+                            questionsGenerated = allQuestions.size,
+                            totalQuestions = totalCount
+                        )
+                    ))
+                } catch (e: Exception) {
+                    println("[Repository] Batch ${index + 1} failed: ${e.message}")
+                    throw e
+                }
+            }
 
             // If we got fewer questions than requested, request the missing ones
             var retryCount = 0

@@ -17,7 +17,9 @@ data class LoadingUiState(
     val isLoading: Boolean = true,
     val isCompleted: Boolean = false,
     val errorMessage: String? = null,
-    val topic: String = ""
+    val topic: String = "",
+    val currentProgress: Int = 0,  // 현재까지 생성된 문제 수
+    val totalCount: Int = 0         // 총 요청한 문제 수
 )
 
 class LoadingViewModel(
@@ -52,7 +54,12 @@ class LoadingViewModel(
             }
 
             val (request, bookId, tags) = pendingData
-            _uiState.update { it.copy(topic = request.topic) }
+            _uiState.update {
+                it.copy(
+                    topic = request.topic,
+                    totalCount = request.count
+                )
+            }
 
             // Use parallel batching for requests > 5 questions
             if (request.count > 5) {
@@ -109,7 +116,12 @@ class LoadingViewModel(
                     // Already in loading state
                 }
                 is ResultWrapper.Progress -> {
-                    // Not used in parallel batch generation (happens too fast)
+                    // Update progress
+                    _uiState.update {
+                        it.copy(
+                            currentProgress = result.progress.questionsGenerated
+                        )
+                    }
                 }
                 is ResultWrapper.Success -> {
                     val questions = result.value.first
