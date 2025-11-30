@@ -218,6 +218,8 @@ export function getTemplateGuidelines(templates: ProblemTemplate[]): string {
         switch (template.kind) {
             case "concept":
                 guide += "\n  형식: '다음 중 ~에 대한 설명으로 옳은 것은?' 또는 '~의 특징으로 옳지 않은 것은?'";
+                guide += "\n  **중복 금지**: 지문은 문제의 주제와 조건만 간단히 소개하고, 개별 문장/설명은 보기에서만 제시한다.";
+                guide += "\n  즉, 지문과 보기에서 동일한 문장을 반복해서 쓰지 않는다.";
                 break;
             case "code":
                 guide += "\n  형식: **MUST include actual code snippet** in the question stem, then ask '다음 코드의 실행 결과는?' 또는 '이 코드의 문제점은?'";
@@ -229,10 +231,13 @@ export function getTemplateGuidelines(templates: ProblemTemplate[]): string {
             case "compare":
                 guide += "\n  형식: '다음 중 A와 B의 차이점으로 옳은 것은?' 또는 '~의 장점으로 옳지 않은 것은?'";
                 guide += "\n  해설 요구사항: 각 보기의 핵심 차이점을 명확히 설명해야 함";
+                guide += "\n  **중복 금지**: 지문은 비교 대상과 조건만 소개하고, 구체적인 차이점/장단점은 보기에서만 제시한다.";
                 break;
             case "multiple_true":
                 guide += "\n  형식: '다음 설명 중 옳은 것을 모두 고르면?' (보기에 번호 조합 제시)";
                 guide += "\n  이 유형은 보통 'ㄱ, ㄴ, ㄷ, ㄹ' 또는 번호가 붙은 여러 진술을 제시하고, 옳은 것/틀린 것의 조합을 고르게 함";
+                guide += "\n  **중요**: 지문에서 ㄱ, ㄴ, ㄷ, ㄹ과 같은 진술을 나열한 경우, 보기에서는 '① ㄱ, ㄴ', '② ㄱ, ㄷ'과 같이";
+                guide += "\n  **조합만 제시하고 진술 자체를 다시 풀어 쓰지 않는다.**";
                 guide += "\n  **해설 필수 요구사항**: 각 진술(ㄱ, ㄴ, ㄷ, ㄹ 등)에 대해 참/거짓 여부와 이유를 한 줄씩 명확하게 설명할 것";
                 guide += "\n  예시: 'ㄱ: 참이다. 이유는 ~', 'ㄴ: 거짓이다. 이유는 ~'";
                 break;

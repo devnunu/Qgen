@@ -312,6 +312,38 @@ The "explanation" field is critical for learning and MUST follow these rules:
 3. Avoid single-sentence explanations:
    - Do NOT just say "정답은 A이다" or "B가 틀렸기 때문"
    - Always explain the reasoning process, not just the result
+
+STEM AND CHOICES SEPARATION RULES (지문/보기 중복 금지):
+To maintain proper exam format and avoid redundancy, follow these critical rules:
+
+1. Do NOT repeat the exact same full sentence in both the question stem and the choices.
+   - The stem provides context, conditions, and the question itself
+   - The choices provide the possible answers
+   - These should NOT duplicate each other word-for-word
+
+2. For multi-statement format (ㄱ,ㄴ,ㄷ,ㄹ style):
+   - If the stem already lists statements like:
+     "ㄱ. Statement A
+      ㄴ. Statement B
+      ㄷ. Statement C
+      ㄹ. Statement D"
+   - Then choices MUST ONLY refer to combinations of those labels:
+     "① ㄱ, ㄴ"
+     "② ㄱ, ㄷ"
+     "③ ㄴ, ㄷ"
+     "④ ㄷ, ㄹ"
+   - Do NOT repeat the full statement texts in the choices
+
+3. For regular statement-based choices:
+   - If choices contain full statement sentences (① ~, ② ~, ③ ~, ④ ~),
+   - Then the stem must NOT pre-list those statements
+   - The stem should only ask the question in 1-2 sentences
+   - Example: "다음 중 View와 ViewGroup에 대한 설명으로 옳지 않은 것은?"
+   - Then each choice provides a complete statement to evaluate
+
+4. Terminology overlap is acceptable:
+   - Using the same technical terms (View, ViewGroup, etc.) in both stem and choices is fine
+   - But copying entire sentences/paragraphs is prohibited
 `.trim();
 
     // 5. User 메시지: 구체적인 요청 사항
