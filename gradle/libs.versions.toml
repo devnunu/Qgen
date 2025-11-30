@@ -52,9 +52,15 @@ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lif
 # Lottie
 lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version = "6.4.0" }
 
+# Room
+room-runtime = { group = "androidx.room", name = "room-runtime", version = "2.6.1" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version = "2.6.1" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version = "2.6.1" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version = "2.0.21-1.0.26" }
 

@@ -34,6 +34,7 @@ object ExamColors {
     val SuccessColor = Color(0xFF2E7D32)
     val DisabledBackground = Color(0xFFF5F5F5)
     val DisabledText = Color(0xFFBDBDBD)
+    val ExamAccent = Color(0xFF1D1D1D)
 }
 
 // (B) Typography - Serif 중심
@@ -105,6 +106,7 @@ object ExamTypography {
 object ExamShapes {
     val PaperCardShape = RectangleShape // 직각 모서리
     val ButtonShape = RoundedCornerShape(2.dp) // 살짝 둥근 직각 느낌
+    val CardShape = RoundedCornerShape(12.dp)
 }
 
 object ExamDimensions {

@@ -21,6 +21,7 @@ data class GenerationUiState(
     val topic: String = "",
     val selectedPreset: TopicPreset? = null,
     val recentTopics: List<String> = emptyList(),
+    val tags: String = "",
     val difficulty: Difficulty = Difficulty.MIXED,
     val count: Int = 10,
     val choiceCount: Int = 4,
@@ -50,10 +51,13 @@ class GenerationViewModel(
         _uiState.update { it.copy(topic = topic, selectedPreset = null) }
     }
     
+    fun onTagsChanged(tags: String) {
+        _uiState.update { it.copy(tags = tags) }
+    }
+    
     fun onRecentTopicSelected(topic: String) {
         _uiState.update { it.copy(topic = topic, selectedPreset = null) }
     }
-
     fun onPresetSelected(preset: TopicPreset) {
         _uiState.update {
             it.copy(
@@ -94,7 +98,6 @@ class GenerationViewModel(
         
         _uiState.update { it.copy(recentTopics = current) }
     }
-
     fun onGenerateClicked() {
         val state = _uiState.value
 
@@ -136,6 +139,10 @@ class GenerationViewModel(
                         is ResultWrapper.Success -> {
                             val questions = result.value.first
                             val metadata = result.value.second
+                            
+                            // DB 저장
+                            questionRepository.saveQuestionSet(questions, metadata, state.tags.ifBlank { null })
+                            
                             sessionViewModel.setCurrentQuestionSet(questions, metadata)
                             _uiState.update { it.copy(isLoading = false) }
                             _sideEffects.send(GenerationSideEffect.NavigateToQuiz)

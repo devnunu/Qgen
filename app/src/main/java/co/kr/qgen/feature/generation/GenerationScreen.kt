@@ -103,6 +103,28 @@ fun GenerationScreen(
                     shape = ExamShapes.ButtonShape
                 )
 
+                // Tags Input
+                OutlinedTextField(
+                    value = uiState.tags,
+                    onValueChange = { viewModel.onTagsChanged(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { 
+                        Text(
+                            "태그 (예: Android, Coroutine, 면접)",
+                            style = ExamTypography.examBodyTextStyle
+                        )
+                    },
+                    enabled = !uiState.isLoading,
+                    textStyle = ExamTypography.examBodyTextStyle,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ExamColors.ExamBorderGray,
+                        unfocusedBorderColor = ExamColors.ExamButtonBorder,
+                        focusedContainerColor = ExamColors.ExamCardBackground,
+                        unfocusedContainerColor = ExamColors.ExamCardBackground
+                    ),
+                    shape = ExamShapes.ButtonShape
+                )
+
                 // Recent Topics
                 if (uiState.recentTopics.isNotEmpty()) {
                     Text(

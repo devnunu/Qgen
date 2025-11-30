@@ -1,5 +1,10 @@
 package co.kr.qgen.core.data.repository
 
+import co.kr.qgen.core.data.source.local.dao.ProblemDao
+import co.kr.qgen.core.data.source.local.dao.ProblemSetDao
+import co.kr.qgen.core.data.source.local.entity.ChoiceEntity
+import co.kr.qgen.core.data.source.local.entity.ProblemEntity
+import co.kr.qgen.core.data.source.local.entity.ProblemSetEntity
 import co.kr.qgen.core.data.source.remote.QuestionRemoteDataSource
 import co.kr.qgen.core.model.GenerateQuestionsRequest
 import co.kr.qgen.core.model.Question
@@ -7,6 +12,7 @@ import co.kr.qgen.core.model.QuestionSetMetadata
 import co.kr.qgen.core.model.ResultWrapper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.util.UUID
 
 /**
  * Repository for question generation
@@ -19,10 +25,20 @@ interface QuestionRepository {
     ): Flow<ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>>
     
     suspend fun checkHealth(): ResultWrapper<Boolean>
+
+    // Local DB methods
+    suspend fun saveQuestionSet(questions: List<Question>, metadata: QuestionSetMetadata, tags: String?)
+    fun getAllProblemSets(): Flow<List<ProblemSetEntity>>
+    suspend fun toggleFavorite(setId: String, isFavorite: Boolean)
+    suspend fun updateTitle(setId: String, title: String)
+    suspend fun getProblemSetById(setId: String): ProblemSetEntity?
+    suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit>
 }
 
 class QuestionRepositoryImpl(
-    private val remoteDataSource: QuestionRemoteDataSource
+    private val remoteDataSource: QuestionRemoteDataSource,
+    private val problemSetDao: ProblemSetDao,
+    private val problemDao: ProblemDao
 ) : QuestionRepository {
     
     override fun generateQuestions(
@@ -65,6 +81,114 @@ class QuestionRepositoryImpl(
             }
         } catch (e: Exception) {
             ResultWrapper.Error(message = e.message ?: "Health check failed", throwable = e)
+        }
+    }
+
+    override suspend fun saveQuestionSet(
+        questions: List<Question>,
+        metadata: QuestionSetMetadata,
+        tags: String?
+    ) {
+        val setId = UUID.randomUUID().toString()
+        val problemSet = ProblemSetEntity(
+            id = setId,
+            topic = metadata.topic,
+            difficulty = metadata.difficulty,
+            language = metadata.language,
+            count = metadata.totalCount,
+            createdAt = System.currentTimeMillis(),
+            lastPlayedAt = null,
+            score = null,
+            tags = tags,
+            title = metadata.topic // 기본값은 주제
+        )
+
+        problemSetDao.insertSet(problemSet)
+
+        val problemEntities = questions.map { q ->
+            ProblemEntity(
+                id = q.id,
+                problemSetId = setId,
+                stem = q.stem,
+                correctChoiceId = q.correctChoiceId,
+                explanation = q.explanation,
+                difficulty = q.metadata.difficulty
+            )
+        }
+
+        val choiceEntities = questions.flatMap { q ->
+            q.choices.map { c ->
+                ChoiceEntity(
+                    problemId = q.id,
+                    choiceId = c.id,
+                    text = c.text
+                )
+            }
+        }
+
+        problemDao.insertProblems(problemEntities)
+        problemDao.insertChoices(choiceEntities)
+    }
+
+    override fun getAllProblemSets(): Flow<List<ProblemSetEntity>> {
+        return problemSetDao.getAllSets()
+    }
+
+    override suspend fun toggleFavorite(setId: String, isFavorite: Boolean) {
+        problemSetDao.updateFavorite(setId, isFavorite)
+    }
+
+    override suspend fun updateTitle(setId: String, title: String) {
+        problemSetDao.updateTitle(setId, title)
+    }
+
+    override suspend fun getProblemSetById(setId: String): ProblemSetEntity? {
+        return problemSetDao.getSetById(setId)
+    }
+
+    override suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit> {
+        val problemSet = problemSetDao.getSetById(setId) ?: return ResultWrapper.Error(message = "Problem set not found")
+
+        val request = GenerateQuestionsRequest(
+            topic = problemSet.topic,
+            difficulty = problemSet.difficulty,
+            count = problemSet.count,
+            language = problemSet.language
+        )
+
+        return try {
+            val response = remoteDataSource.generateQuestions(request)
+            if (response.success && response.data != null) {
+                val questions = response.data.questions
+                
+                val problemEntities = questions.map { q ->
+                    ProblemEntity(
+                        id = q.id,
+                        problemSetId = setId,
+                        stem = q.stem,
+                        correctChoiceId = q.correctChoiceId,
+                        explanation = q.explanation,
+                        difficulty = q.metadata.difficulty
+                    )
+                }
+
+                val choiceEntities = questions.flatMap { q ->
+                    q.choices.map { c ->
+                        ChoiceEntity(
+                            problemId = q.id,
+                            choiceId = c.id,
+                            text = c.text
+                        )
+                    }
+                }
+
+                problemDao.replaceProblems(setId, problemEntities, choiceEntities)
+                ResultWrapper.Success(Unit)
+            } else {
+                ResultWrapper.Error(message = response.error ?: "Failed to regenerate questions")
+            }
+        } catch (e: Exception) {
+            ResultWrapper.Error(message = e.message ?: "Network error during regeneration", throwable = e)
         }
     }
 }
