@@ -220,7 +220,8 @@ export function getTemplateGuidelines(templates: ProblemTemplate[]): string {
                 guide += "\n  형식: '다음 중 ~에 대한 설명으로 옳은 것은?' 또는 '~의 특징으로 옳지 않은 것은?'";
                 break;
             case "code":
-                guide += "\n  형식: 코드 블록을 제시하고 '다음 코드의 실행 결과는?' 또는 '이 코드의 문제점은?'";
+                guide += "\n  형식: **MUST include actual code snippet** in the question stem, then ask '다음 코드의 실행 결과는?' 또는 '이 코드의 문제점은?'";
+                guide += "\n  중요: 코드는 실제로 작성되어야 하며, 단순히 '다음 코드'라고만 언급하지 말 것";
                 break;
             case "scenario":
                 guide += "\n  형식: 실무 상황을 제시하고 '이 상황에서 가장 적절한 해결책은?' 또는 '다음 중 올바른 접근 방법은?'";

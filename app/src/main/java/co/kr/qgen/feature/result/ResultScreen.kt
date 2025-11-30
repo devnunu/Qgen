@@ -37,6 +37,7 @@ import co.kr.qgen.core.ui.theme.ExamColors
 import co.kr.qgen.core.ui.theme.ExamDimensions
 import co.kr.qgen.core.ui.theme.ExamTypography
 import co.kr.qgen.core.ui.theme.examPaperBackground
+import co.kr.qgen.core.util.unescapeString
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -180,7 +181,7 @@ fun ResultItemView(number: Int, item: co.kr.qgen.feature.quiz.ResultItem) {
 
         // Question Stem
         Text(
-            text = item.question.stem,
+            text = item.question.stem.unescapeString(),
             style = ExamTypography.examBodyTextStyle
         )
 
@@ -218,10 +219,10 @@ fun ResultItemView(number: Int, item: co.kr.qgen.feature.quiz.ResultItem) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = choice.text,
+                        text = choice.text.unescapeString(),
                         style = textStyle,
-                        color = if (isCorrect) ExamColors.SuccessColor 
-                               else if (isSelected) ExamColors.ErrorColor 
+                        color = if (isCorrect) ExamColors.SuccessColor
+                               else if (isSelected) ExamColors.ErrorColor
                                else ExamColors.ExamTextPrimary,
                         modifier = Modifier.weight(1f)
                     )
@@ -235,7 +236,7 @@ fun ResultItemView(number: Int, item: co.kr.qgen.feature.quiz.ResultItem) {
             HorizontalDivider(color = ExamColors.ExamBorderGray, thickness = 1.dp)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "해설: ${item.question.explanation}",
+                text = "해설: ${item.question.explanation.unescapeString()}",
                 style = ExamTypography.examBodyTextStyle.copy(fontWeight = FontWeight.Medium)
             )
         }

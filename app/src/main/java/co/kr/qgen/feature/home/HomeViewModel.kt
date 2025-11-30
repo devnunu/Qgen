@@ -21,8 +21,7 @@ data class ProblemSetSummary(
     val createdAt: Long,
     val lastPlayedAt: Long?,
     val score: Int?,
-    val isFavorite: Boolean,
-    val tags: List<String>
+    val isFavorite: Boolean
 )
 
 data class HomeUiState(
@@ -31,7 +30,6 @@ data class HomeUiState(
     val selectedIds: Set<String> = emptySet(),
     val showFavoritesOnly: Boolean = false,
     val searchQuery: String = "",
-    val tagFilter: String? = null,
     val isRegenerating: Boolean = false,
     val errorMessage: String? = null
 )
@@ -41,17 +39,16 @@ class HomeViewModel(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
-    private val _tagFilter = MutableStateFlow<String?>(null)
     private val _showFavoritesOnly = MutableStateFlow(false)
     private val _isRegenerating = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<HomeUiState> = combine(
         questionRepository.getAllProblemSets(),
-        combine(_searchQuery, _tagFilter, _showFavoritesOnly) { query, tag, fav -> Triple(query, tag, fav) },
+        combine(_searchQuery, _showFavoritesOnly) { query, fav -> Pair(query, fav) },
         _isRegenerating,
         _errorMessage
-    ) { sets, (query, tag, favoritesOnly), regenerating, error ->
+    ) { sets, (query, favoritesOnly), regenerating, error ->
         val summaries = sets.map { entity ->
             ProblemSetSummary(
                 id = entity.id,
@@ -63,27 +60,23 @@ class HomeViewModel(
                 createdAt = entity.createdAt,
                 lastPlayedAt = entity.lastPlayedAt,
                 score = entity.score,
-                isFavorite = entity.isFavorite,
-                tags = entity.tags?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+                isFavorite = entity.isFavorite
             )
         }
 
         val filteredSets = summaries.filter { summary ->
             val matchesQuery = if (query.isBlank()) true else {
                 summary.title.contains(query, ignoreCase = true) ||
-                summary.topic.contains(query, ignoreCase = true) ||
-                summary.tags.any { it.contains(query, ignoreCase = true) }
+                summary.topic.contains(query, ignoreCase = true)
             }
-            val matchesTag = if (tag == null) true else summary.tags.contains(tag)
             val matchesFavorite = if (favoritesOnly) summary.isFavorite else true
 
-            matchesQuery && matchesTag && matchesFavorite
+            matchesQuery && matchesFavorite
         }
 
         HomeUiState(
             sets = filteredSets,
             searchQuery = query,
-            tagFilter = tag,
             showFavoritesOnly = favoritesOnly,
             isRegenerating = regenerating,
             errorMessage = error
@@ -96,10 +89,6 @@ class HomeViewModel(
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
-    }
-
-    fun onTagFilterChanged(tag: String?) {
-        _tagFilter.value = if (_tagFilter.value == tag) null else tag
     }
 
     fun toggleShowFavoritesOnly() {

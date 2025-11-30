@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -35,7 +34,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,7 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.kr.qgen.core.ui.components.ExamFilterButton
 import co.kr.qgen.core.ui.theme.ExamColors
 import co.kr.qgen.core.ui.theme.ExamShapes
 import co.kr.qgen.core.ui.theme.ExamTypography
@@ -188,7 +185,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("세트 이름, 주제, 태그 검색") },
+                    placeholder = { Text("세트 이름, 주제 검색") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -199,23 +196,6 @@ fun HomeScreen(
                     ),
                     shape = ExamShapes.ButtonShape
                 )
-                
-                // Tag Filters
-                val allTags = uiState.sets.flatMap { it.tags }.distinct().take(10) // 상위 10개만 표시
-                if (allTags.isNotEmpty()) {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(allTags) { tag ->
-                            ExamFilterButton(
-                                text = "#$tag",
-                                isSelected = uiState.tagFilter == tag,
-                                onClick = { viewModel.onTagFilterChanged(tag) }
-                            )
-                        }
-                    }
-                }
             }
         },
         floatingActionButton = {
@@ -348,26 +328,6 @@ fun ProblemSetCard(
                                     showMenu = false
                                     onDeleteClick()
                                 }
-                            )
-                        }
-                    }
-                }
-            }
-            
-            if (summary.tags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    summary.tags.forEach { tag ->
-                        Surface(
-                            color = ExamColors.ExamBackground,
-                            shape = ExamShapes.ButtonShape,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, ExamColors.ExamButtonBorder)
-                        ) {
-                            Text(
-                                text = "#$tag",
-                                style = ExamTypography.examSmallTextStyle,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = ExamColors.ExamTextSecondary
                             )
                         }
                     }

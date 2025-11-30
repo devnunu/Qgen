@@ -170,7 +170,7 @@ OUTPUT FORMAT (JSON ONLY):
 {
   "questions": [
     {
-      "stem": "Question text",
+      "stem": "Question text (CAN include code snippets if question type is 'code')",
       "choices": [
         { "text": "Choice 1" },
         { "text": "Choice 2" },
@@ -189,7 +189,13 @@ CONSTRAINTS:
 - correctChoiceIndex is 0-based integer (0 = first choice, 1 = second choice, etc.)
 - Each question must use exactly ${choiceCount} choices
 - Language: ${language === "ko" ? "Korean" : "English"}
-- NO Markdown formatting, NO code blocks, NO extra text - ONLY JSON
+- For CODE type questions: MUST include actual code in the "stem" field
+- When including code, use \\n for line breaks (JSON escaped newlines)
+- Example: "다음 코드의 실행 결과는?\\n\\nfun main() {\\n    println(\\"Hello\\")\\n}"
+- The entire response must be ONLY valid JSON - no markdown code blocks wrapping the JSON
+- DO NOT wrap the JSON response in \`\`\`json...\`\`\` blocks
+- DO NOT include any text before or after the JSON object
+- Ensure all strings are properly JSON-escaped (use \\\\ for backslash, \\" for quotes, \\n for newlines)
 `.trim();
 
     // 5. User 메시지: 구체적인 요청 사항
@@ -226,6 +232,7 @@ Return ONLY the JSON object. No other text.
                 { role: "user", content: userPrompt },
             ],
             temperature: 0.7,
+            response_format: { type: "json_object" },
         });
 
         const apiDuration = Date.now() - startTime;
@@ -236,14 +243,34 @@ Return ONLY the JSON object. No other text.
             throw new Error("No content received from OpenAI");
         }
 
-        // 5. JSON 파싱 (Markdown 제거)
-        const jsonString = content.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+        // 5. JSON 파싱 (강화된 정제 로직)
+        let jsonString = content.trim();
+
+        // 마크다운 코드 블록 제거 (다양한 형태)
+        jsonString = jsonString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/g, '');
+
+        // 앞뒤 공백 및 개행 제거
+        jsonString = jsonString.trim();
+
+        // JSON 시작/끝 찾기 (추가 텍스트가 있을 경우 대비)
+        const jsonStart = jsonString.indexOf('{');
+        const jsonEnd = jsonString.lastIndexOf('}');
+
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
+        }
 
         let parsed: any;
         try {
             parsed = JSON.parse(jsonString);
         } catch (e) {
-            console.error("[OpenAI] Failed to parse JSON:", content);
+            console.error("[OpenAI] Failed to parse JSON");
+            console.error("[OpenAI] Raw content length:", content.length);
+            console.error("[OpenAI] First 500 chars:", content.substring(0, 500));
+            console.error("[OpenAI] Last 500 chars:", content.substring(Math.max(0, content.length - 500)));
+            console.error("[OpenAI] Cleaned JSON string length:", jsonString.length);
+            console.error("[OpenAI] First 500 chars of cleaned:", jsonString.substring(0, 500));
+            console.error("[OpenAI] Parse error:", e);
             throw new Error("Failed to parse JSON response from AI");
         }
 

@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.kr.qgen.core.ui.theme.ExamTypography
+import co.kr.qgen.core.util.unescapeString
 
 /**
  * ExamQuestionHeader - 모의고사 스타일 문제 헤더
@@ -36,7 +37,7 @@ fun ExamQuestionHeader(
         
         // 본문 제목 + 점수
         Text(
-            text = "$questionText [${points}점]",
+            text = "${questionText.unescapeString()} [${points}점]",
             style = ExamTypography.examBodyTextStyle,
             modifier = Modifier.weight(1f)
         )
