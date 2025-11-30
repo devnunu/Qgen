@@ -57,3 +57,38 @@ export interface AiQuestion {
     explanation: string;
     difficulty?: "easy" | "medium" | "hard";
 }
+
+// ============================================================================
+// Question Validation Types
+// ============================================================================
+
+/**
+ * 문제 지문에서 파악한 directive 타입
+ */
+export type QuestionDirective =
+    | "single_correct"          // '옳은 것', '올바른 설명' 등 하나만 고르는 문제
+    | "single_incorrect"        // '옳지 않은 것', '틀린 것' 등 하나만 고르는 문제
+    | "multi_correct"           // '옳은 것을 모두', '모두 고르시오' 등 여러 개 정답 가능
+    | "multi_incorrect"         // '옳지 않은 것을 모두', '틀린 것을 모두' 등 여러 개 오답 가능
+    | "unknown";                // 패턴을 파악하지 못한 경우
+
+/**
+ * 구조적 검증 결과
+ */
+export interface StructuralValidationResult {
+    directive: QuestionDirective;
+    expectedCorrectCount: number | null; // single인 경우 1, multi면 null(제한 없음)
+    actualCorrectCount: number;         // isCorrect === true 개수
+    isStructurallyValid: boolean;       // 규칙 기반으로 봤을 때 구조적으로 문제 없는지
+    issues: string[];                   // 발견한 문제점 설명
+}
+
+/**
+ * AI 2차 검증 결과
+ */
+export interface AiVerificationResult {
+    index: number;                 // 원본 질문 인덱스
+    isValid: boolean;             // 최종적으로 사용해도 되는지
+    fixedIsCorrect?: boolean[];   // 필요하다면 수정된 isCorrect 배열
+    issueSummary?: string;        // 문제 발견 시 요약 설명 (로그용)
+}

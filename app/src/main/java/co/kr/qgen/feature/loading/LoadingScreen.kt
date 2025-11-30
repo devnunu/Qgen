@@ -151,6 +151,16 @@ fun LoadingScreen(
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
                 if (uiState.isLoading) {
+                    // Animated dots for loading text
+                    var dotCount by remember { mutableStateOf(1) }
+
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            kotlinx.coroutines.delay(1000)
+                            dotCount = if (dotCount >= 3) 1 else dotCount + 1
+                        }
+                    }
+
                     // Circular progress indicator (always shown)
                     CircularProgressIndicator(
                         modifier = Modifier.size(64.dp),
@@ -158,7 +168,7 @@ fun LoadingScreen(
                     )
 
                     Text(
-                        text = "AI가 문제를 생성하고 있습니다...",
+                        text = "AI가 문제를 생성하고 있습니다${".".repeat(dotCount)}",
                         style = ExamTypography.examBodyTextStyle,
                         color = ExamColors.ExamTextPrimary
                     )
@@ -177,15 +187,15 @@ fun LoadingScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Styled progress bar
+                        // Styled progress bar with gradient-like effect
                         LinearProgressIndicator(
                             progress = { animatedProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
                                 .clip(ExamShapes.ButtonShape),
-                            color = ExamColors.ExamAccent,
-                            trackColor = ExamColors.ExamBorderGray,
+                            color = androidx.compose.ui.graphics.Color(0xFF2196F3), // 진한 파란색
+                            trackColor = androidx.compose.ui.graphics.Color(0xFFBBDEFB), // 옅은 파란색
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))

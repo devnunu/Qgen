@@ -88,12 +88,13 @@ fun QGenApp(modifier: Modifier = Modifier) {
             composable("loading") {
                 co.kr.qgen.feature.loading.LoadingScreen(
                     onNavigateToQuiz = {
+                        // loading과 generation 화면 제거, bookDetail은 유지
                         navController.navigate("quiz/new") {
-                            popUpTo("home") // 로딩 화면 제거하고 홈까지 스택 정리
+                            popUpTo("bookDetail/{bookId}") { inclusive = false }
                         }
                     },
                     onNavigateBack = {
-                        navController.popBackStack("home", inclusive = false)
+                        navController.popBackStack("bookDetail/{bookId}", inclusive = false)
                     }
                 )
             }
@@ -104,8 +105,8 @@ fun QGenApp(modifier: Modifier = Modifier) {
                 QuizScreen(
                     onNavigateToResult = { navController.navigate("result") },
                     onNavigateBack = {
-                        // 퀴즈 화면에서 뒤로가기 시 홈으로 (로딩 화면 건너뛰기)
-                        navController.popBackStack("home", inclusive = false)
+                        // 이전 화면으로 돌아가기 (bookDetail 또는 home)
+                        navController.popBackStack()
                     }
                 )
             }
