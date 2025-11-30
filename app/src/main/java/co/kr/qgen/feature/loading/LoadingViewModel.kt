@@ -54,8 +54,12 @@ class LoadingViewModel(
             val (request, bookId, tags) = pendingData
             _uiState.update { it.copy(topic = request.topic) }
 
-            // Always use single generation - server handles batching
-            handleSingleGeneration(request, bookId, tags)
+            // Use parallel batching for requests > 5 questions
+            if (request.count > 5) {
+                handleParallelBatchGeneration(request, bookId, tags)
+            } else {
+                handleSingleGeneration(request, bookId, tags)
+            }
         }
     }
 
@@ -88,6 +92,40 @@ class LoadingViewModel(
                     }
                 }
             }
+    }
+
+    private suspend fun handleParallelBatchGeneration(
+        request: co.kr.qgen.core.model.GenerateQuestionsRequest,
+        bookId: String,
+        tags: String?
+    ) {
+        questionRepository.generateQuestionsWithParallelBatching(
+            request = request,
+            useMockApi = false,
+            batchSize = 5
+        ).collect { result ->
+            when (result) {
+                is ResultWrapper.Loading -> {
+                    // Already in loading state
+                }
+                is ResultWrapper.Progress -> {
+                    // Not used in parallel batch generation (happens too fast)
+                }
+                is ResultWrapper.Success -> {
+                    val questions = result.value.first
+                    val metadata = result.value.second
+                    saveAndComplete(questions, metadata, bookId, tags)
+                }
+                is ResultWrapper.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = result.message ?: "문제 생성에 실패했습니다"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun saveAndComplete(

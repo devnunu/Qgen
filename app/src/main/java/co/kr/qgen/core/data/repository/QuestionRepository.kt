@@ -11,6 +11,10 @@ import co.kr.qgen.core.model.Question
 import co.kr.qgen.core.model.QuestionChoice
 import co.kr.qgen.core.model.QuestionSetMetadata
 import co.kr.qgen.core.model.ResultWrapper
+import co.kr.qgen.core.util.RetryUtil
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
@@ -23,6 +27,12 @@ interface QuestionRepository {
     fun generateQuestions(
         request: GenerateQuestionsRequest,
         useMockApi: Boolean = false
+    ): Flow<ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>>
+
+    fun generateQuestionsWithParallelBatching(
+        request: GenerateQuestionsRequest,
+        useMockApi: Boolean = false,
+        batchSize: Int = 5
     ): Flow<ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>>
 
     suspend fun checkHealth(): ResultWrapper<Boolean>
@@ -72,6 +82,129 @@ class QuestionRepositoryImpl(
             }
         } catch (e: Exception) {
             emit(ResultWrapper.Error(message = e.message ?: "Network error occurred", throwable = e))
+        }
+    }
+
+    override fun generateQuestionsWithParallelBatching(
+        request: GenerateQuestionsRequest,
+        useMockApi: Boolean,
+        batchSize: Int
+    ): Flow<ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>> = flow {
+        emit(ResultWrapper.Loading)
+
+        try {
+            val totalCount = request.count
+
+            // If count is less than or equal to batch size, use single request
+            if (totalCount <= batchSize) {
+                val response = RetryUtil.retryWithExponentialBackoff {
+                    if (useMockApi) {
+                        remoteDataSource.generateMockQuestions(request)
+                    } else {
+                        remoteDataSource.generateQuestions(request)
+                    }
+                }
+
+                if (response.success && response.data != null) {
+                    val questions = response.data.questions
+                    val metadata = QuestionSetMetadata(
+                        topic = request.topic,
+                        difficulty = request.difficulty,
+                        totalCount = questions.size,
+                        language = request.language ?: "ko"
+                    )
+                    emit(ResultWrapper.Success(Pair(questions, metadata)))
+                } else {
+                    emit(ResultWrapper.Error(message = response.error ?: "Unknown error occurred"))
+                }
+                return@flow
+            }
+
+            // Split into batches
+            val batches = mutableListOf<GenerateQuestionsRequest>()
+            var remaining = totalCount
+            while (remaining > 0) {
+                val currentBatchSize = minOf(batchSize, remaining)
+                batches.add(
+                    request.copy(count = currentBatchSize)
+                )
+                remaining -= currentBatchSize
+            }
+
+            // Execute batches in parallel with retry logic
+            var allQuestions = coroutineScope {
+                batches.map { batchRequest ->
+                    async {
+                        RetryUtil.retryWithExponentialBackoff {
+                            val response = if (useMockApi) {
+                                remoteDataSource.generateMockQuestions(batchRequest)
+                            } else {
+                                remoteDataSource.generateQuestions(batchRequest)
+                            }
+
+                            if (response.success && response.data != null) {
+                                response.data.questions
+                            } else {
+                                throw Exception(response.error ?: "Failed to generate questions for batch")
+                            }
+                        }
+                    }
+                }.awaitAll().flatten()
+            }.toMutableList()
+
+            // If we got fewer questions than requested, request the missing ones
+            var retryCount = 0
+            val maxRetries = 3
+            while (allQuestions.size < totalCount && retryCount < maxRetries) {
+                val missing = totalCount - allQuestions.size
+                println("[Repository] Got ${allQuestions.size}/$totalCount questions. Requesting $missing more (retry ${retryCount + 1}/$maxRetries)")
+
+                try {
+                    val additionalQuestions = RetryUtil.retryWithExponentialBackoff {
+                        val response = if (useMockApi) {
+                            remoteDataSource.generateMockQuestions(request.copy(count = missing))
+                        } else {
+                            remoteDataSource.generateQuestions(request.copy(count = missing))
+                        }
+
+                        if (response.success && response.data != null) {
+                            response.data.questions
+                        } else {
+                            throw Exception(response.error ?: "Failed to generate additional questions")
+                        }
+                    }
+
+                    allQuestions.addAll(additionalQuestions)
+
+                    if (additionalQuestions.isEmpty()) {
+                        // 추가 요청에서 0개가 반환되면 무한 루프 방지
+                        break
+                    }
+                } catch (e: Exception) {
+                    println("[Repository] Failed to generate additional questions: ${e.message}")
+                    break
+                }
+
+                retryCount++
+            }
+
+            // Ensure we have exactly the requested count (trim if needed)
+            val finalQuestions = allQuestions.take(totalCount)
+
+            if (finalQuestions.isEmpty()) {
+                emit(ResultWrapper.Error(message = "No questions were generated"))
+            } else {
+                val metadata = QuestionSetMetadata(
+                    topic = request.topic,
+                    difficulty = request.difficulty,
+                    totalCount = finalQuestions.size,
+                    language = request.language ?: "ko"
+                )
+                emit(ResultWrapper.Success(Pair(finalQuestions, metadata)))
+            }
+
+        } catch (e: Exception) {
+            emit(ResultWrapper.Error(message = e.message ?: "Failed to generate questions", throwable = e))
         }
     }
 
