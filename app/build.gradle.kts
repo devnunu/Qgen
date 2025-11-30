@@ -18,11 +18,18 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/\"")
     }
 
     buildTypes {
+        debug {
+            // Vercel 프로덕션 서버 사용 (실제 디바이스 테스트 가능)
+            buildConfigField("String", "BASE_URL", "\"https://qgen-six.vercel.app/\"")
+            // 로컬 서버 사용 시 (Android 에뮬레이터 전용)
+            // buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/\"")
+        }
         release {
+            // Vercel 프로덕션 서버 사용
+            buildConfigField("String", "BASE_URL", "\"https://qgen-six.vercel.app/\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
