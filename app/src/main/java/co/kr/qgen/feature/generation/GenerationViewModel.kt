@@ -74,10 +74,6 @@ class GenerationViewModel(
         _uiState.update { it.copy(count = count.coerceIn(5, 20)) }
     }
 
-    fun onChoiceCountChanged(choiceCount: Int) {
-        _uiState.update { it.copy(choiceCount = choiceCount) }
-    }
-
     fun onMockApiToggled(useMock: Boolean) {
         _uiState.update { it.copy(useMockApi = useMock) }
     }

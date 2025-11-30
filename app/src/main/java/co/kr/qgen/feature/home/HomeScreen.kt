@@ -276,7 +276,7 @@ fun ProblemBookCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = summary.title,
-                        style = ExamTypography.examTitleTextStyle,
+                        style = ExamTypography.examBodyTextStyle,
                         maxLines = 2
                     )
                     Spacer(modifier = Modifier.height(4.dp))

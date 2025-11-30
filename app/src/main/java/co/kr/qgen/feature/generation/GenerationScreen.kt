@@ -120,12 +120,6 @@ fun GenerationScreen(
                 .padding(ExamDimensions.ScreenPadding),
             verticalArrangement = Arrangement.spacedBy(ExamDimensions.SectionSpacing)
         ) {
-            // Title
-            Text(
-                text = "QGen 모의고사 생성",
-                style = ExamTypography.examTitleTextStyle
-            )
-
             // Topic Input
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -281,27 +275,6 @@ fun GenerationScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                }
-            }
-
-            // Choice Count - ExamFilterButton
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("보기 개수", style = ExamTypography.examLabelTextStyle)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExamFilterButton(
-                        text = "4지선다",
-                        isSelected = uiState.choiceCount == 4,
-                        onClick = { viewModel.onChoiceCountChanged(4) },
-                        enabled = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    ExamFilterButton(
-                        text = "5지선다",
-                        isSelected = uiState.choiceCount == 5,
-                        onClick = { viewModel.onChoiceCountChanged(5) },
-                        enabled = true,
-                        modifier = Modifier.weight(1f)
-                    )
                 }
             }
 
