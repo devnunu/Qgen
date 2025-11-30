@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 
 data class GenerationUiState(
     val topic: String = "",
+    val description: String = "", // 주제 상세 설명 (최대 300자)
     val recentTopics: List<String> = emptyList(),
     val difficulty: Difficulty = Difficulty.MIXED,
     val count: Int = 10,
@@ -49,7 +50,15 @@ class GenerationViewModel(
     val sideEffects = _sideEffects.receiveAsFlow()
 
     fun onTopicChanged(topic: String) {
-        _uiState.update { it.copy(topic = topic) }
+        // 15자 제한
+        val limited = topic.take(15)
+        _uiState.update { it.copy(topic = limited) }
+    }
+
+    fun onDescriptionChanged(description: String) {
+        // 300자 제한
+        val limited = description.take(300)
+        _uiState.update { it.copy(description = limited) }
     }
 
     fun onRecentTopicSelected(topic: String) {
@@ -118,6 +127,7 @@ class GenerationViewModel(
         // InMemoryDataSource에 요청 저장
         val request = GenerateQuestionsRequest(
             topic = state.topic,
+            description = state.description.takeIf { it.isNotBlank() }, // 빈 문자열이면 null로 전달
             difficulty = state.difficulty.value,
             count = state.count,
             choiceCount = state.choiceCount,

@@ -482,7 +482,7 @@ export async function generateQuestionsFromAI(
 ): Promise<GenerateQuestionsResponse> {
     const client = getOpenAIClient();
 
-    const { topic, subtopics, difficulty, count, choiceCount = 4, language = "ko" } = request;
+    const { topic, description, subtopics, difficulty, count, choiceCount = 4, language = "ko" } = request;
 
     // 1. 요청에 맞는 템플릿 선택
     const selectedTemplates = pickTemplatesForRequest(request);
@@ -675,6 +675,9 @@ To maintain proper exam format and avoid redundancy, follow these critical rules
 Generate ${count} multiple-choice questions.
 
 Topic: ${topic}
+${description && description.trim().length > 0
+            ? `\nAdditional Context:\n${description}\n\nIMPORTANT: Use this additional context to create more precise and relevant questions. The description provides specific details about what aspects of the topic to focus on, expected question styles, or particular concepts to emphasize.\n`
+            : ''}
 ${subtopics && subtopics.length > 0 ? `Subtopics: ${subtopics.join(', ')}` : ''}
 Requested overall difficulty: ${difficulty}
 Choices per Question: ${choiceCount}

@@ -23,6 +23,7 @@ export interface Question {
 
 export interface GenerateQuestionsRequest {
     topic: string;
+    description?: string; // 주제에 대한 상세 설명 (최대 300자) - AI에게 추가 컨텍스트 제공
     subtopics?: string[];
     difficulty: "easy" | "medium" | "hard" | "mixed";
     count: number; // 1 ~ 50

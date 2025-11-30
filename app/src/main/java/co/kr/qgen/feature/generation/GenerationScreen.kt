@@ -138,7 +138,7 @@ fun GenerationScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = {
                         Text(
-                            "예: Android Coroutines",
+                            "주제를 입력해주세요",
                             style = ExamTypography.examBodyTextStyle,
                             color = ExamColors.ExamTextSecondary
                         )
@@ -153,7 +153,14 @@ fun GenerationScreen(
                         focusedPlaceholderColor = ExamColors.ExamTextSecondary,
                         unfocusedPlaceholderColor = ExamColors.ExamTextSecondary
                     ),
-                    shape = ExamShapes.ButtonShape
+                    shape = ExamShapes.ButtonShape,
+                    supportingText = {
+                        Text(
+                            "${uiState.topic.length}/15",
+                            style = ExamTypography.examSmallTextStyle,
+                            color = ExamColors.ExamTextSecondary
+                        )
+                    }
                 )
 
                 // Recent Topics
@@ -176,6 +183,46 @@ fun GenerationScreen(
                         }
                     }
                 }
+            }
+
+            // Description Input (Optional)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "상세 설명 (선택사항)",
+                    style = ExamTypography.examLabelTextStyle
+                )
+                OutlinedTextField(
+                    value = uiState.description,
+                    onValueChange = { viewModel.onDescriptionChanged(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            "AI에게 추가로 전달할 상세 설명을 입력하세요",
+                            style = ExamTypography.examBodyTextStyle,
+                            color = ExamColors.ExamTextSecondary
+                        )
+                    },
+                    enabled = true,
+                    textStyle = ExamTypography.examBodyTextStyle,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ExamColors.ExamBorderGray,
+                        unfocusedBorderColor = ExamColors.ExamButtonBorder,
+                        focusedContainerColor = ExamColors.ExamCardBackground,
+                        unfocusedContainerColor = ExamColors.ExamCardBackground,
+                        focusedPlaceholderColor = ExamColors.ExamTextSecondary,
+                        unfocusedPlaceholderColor = ExamColors.ExamTextSecondary
+                    ),
+                    shape = ExamShapes.ButtonShape,
+                    minLines = 3,
+                    maxLines = 5,
+                    supportingText = {
+                        Text(
+                            "${uiState.description.length}/300",
+                            style = ExamTypography.examSmallTextStyle,
+                            color = ExamColors.ExamTextSecondary
+                        )
+                    }
+                )
             }
 
             // Difficulty - ExamFilterButton
