@@ -66,6 +66,7 @@ fun QGenApp(modifier: Modifier = Modifier) {
                     onNavigateToGeneration = { bookId -> navController.navigate("generation/$bookId") },
                     onNavigateToQuiz = { setId -> navController.navigate("quiz/$setId") },
                     onNavigateToAdHocQuiz = { navController.navigate("quiz/adhoc") },
+                    onNavigateToLoading = { navController.navigate("loading") },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

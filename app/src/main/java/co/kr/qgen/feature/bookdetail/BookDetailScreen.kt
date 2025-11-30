@@ -69,6 +69,7 @@ fun BookDetailScreen(
     onNavigateToGeneration: (String) -> Unit,
     onNavigateToQuiz: (String) -> Unit,
     onNavigateToAdHocQuiz: () -> Unit,
+    onNavigateToLoading: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -221,36 +222,24 @@ fun BookDetailScreen(
         val setId = showRegenerateDialog!!
 
         AlertDialog(
-            onDismissRequest = {
-                if (!uiState.isRegenerating) {
-                    showRegenerateDialog = null
-                }
-            },
+            onDismissRequest = { showRegenerateDialog = null },
             title = { Text("문제 다시 생성하기") },
-            text = {
-                if (uiState.isRegenerating) {
-                    Text("문제를 재생성하고 있습니다. 잠시만 기다려주세요...")
-                } else {
-                    Text("이 세트의 문제들을 모두 새로 생성합니다. 기존 문제들은 삭제됩니다. 계속하시겠습니까?")
-                }
-            },
+            text = { Text("이 세트의 문제들을 모두 새로 생성합니다. 기존 문제들은 삭제됩니다. 계속하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.regenerateProblemSet(setId) { success ->
-                            showRegenerateDialog = null
+                        showRegenerateDialog = null
+                        viewModel.regenerateProblemSet(setId) {
+                            onNavigateToLoading()
                         }
-                    },
-                    enabled = !uiState.isRegenerating
+                    }
                 ) {
-                    Text(if (uiState.isRegenerating) "재생성 중..." else "확인")
+                    Text("확인")
                 }
             },
             dismissButton = {
-                if (!uiState.isRegenerating) {
-                    TextButton(onClick = { showRegenerateDialog = null }) {
-                        Text("취소")
-                    }
+                TextButton(onClick = { showRegenerateDialog = null }) {
+                    Text("취소")
                 }
             },
             containerColor = ExamColors.ExamCardBackground

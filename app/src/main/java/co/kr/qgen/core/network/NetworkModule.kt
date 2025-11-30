@@ -60,7 +60,7 @@ val viewModelModule = module {
     single { QGenSessionViewModel() }
     viewModel { GenerationViewModel(get(), get(), get(), get()) }
     viewModel { HomeViewModel(get()) } // ProblemBookRepository
-    viewModel { BookDetailViewModel(get(), get(), get(), get()) }
+    viewModel { params -> BookDetailViewModel(get(), get(), get(), get(), params.get()) }
     viewModel { LoadingViewModel(get(), get(), get()) }
     viewModel { QuizViewModel(get(), get(), get()) }
     viewModel { ResultViewModel(get()) }

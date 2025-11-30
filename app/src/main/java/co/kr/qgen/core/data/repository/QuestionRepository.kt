@@ -36,6 +36,7 @@ interface QuestionRepository {
 
     // Local DB methods
     suspend fun saveQuestionSet(questions: List<Question>, metadata: QuestionSetMetadata, bookId: String, tags: String?)
+    suspend fun replaceProblemsInSet(setId: String, questions: List<Question>)
     fun getAllProblemSets(): Flow<List<ProblemSetEntity>>
     suspend fun toggleFavorite(setId: String, isFavorite: Boolean)
     suspend fun updateTitle(setId: String, title: String)
@@ -279,6 +280,31 @@ class QuestionRepositoryImpl(
 
         problemDao.insertProblems(problemEntities)
         problemDao.insertChoices(choiceEntities)
+    }
+
+    override suspend fun replaceProblemsInSet(setId: String, questions: List<Question>) {
+        val problemEntities = questions.map { q ->
+            ProblemEntity(
+                id = q.id,
+                problemSetId = setId,
+                stem = q.stem,
+                correctChoiceId = q.correctChoiceId,
+                explanation = q.explanation,
+                difficulty = q.metadata.difficulty
+            )
+        }
+
+        val choiceEntities = questions.flatMap { q ->
+            q.choices.map { c ->
+                ChoiceEntity(
+                    problemId = q.id,
+                    choiceId = c.id,
+                    text = c.text
+                )
+            }
+        }
+
+        problemDao.replaceProblems(setId, problemEntities, choiceEntities)
     }
 
     override fun getAllProblemSets(): Flow<List<ProblemSetEntity>> {

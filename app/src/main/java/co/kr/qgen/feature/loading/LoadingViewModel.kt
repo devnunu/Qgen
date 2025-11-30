@@ -146,8 +146,16 @@ class LoadingViewModel(
         bookId: String,
         tags: String?
     ) {
-        // DB 저장
-        questionRepository.saveQuestionSet(questions, metadata, bookId, tags)
+        // Check if this is a regeneration or new generation
+        val regenerationSetId = inMemoryDataSource.getRegenerationSetId()
+
+        if (regenerationSetId != null) {
+            // Regeneration mode: Replace problems in existing set
+            questionRepository.replaceProblemsInSet(regenerationSetId, questions)
+        } else {
+            // New generation mode: Create new problem set
+            questionRepository.saveQuestionSet(questions, metadata, bookId, tags)
+        }
 
         // 세션에 저장
         sessionViewModel.setCurrentQuestionSet(questions, metadata)
