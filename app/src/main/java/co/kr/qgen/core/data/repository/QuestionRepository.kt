@@ -286,7 +286,6 @@ class QuestionRepositoryImpl(
     }
 
     override suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit> {
-        // ... (existing implementation)
         val problemSet = problemSetDao.getSetById(setId) ?: return ResultWrapper.Error(message = "Problem set not found")
 
         val request = GenerateQuestionsRequest(
@@ -297,35 +296,57 @@ class QuestionRepositoryImpl(
         )
 
         return try {
-            val response = remoteDataSource.generateQuestions(request)
-            if (response.success && response.data != null) {
-                val questions = response.data.questions
-                
-                val problemEntities = questions.map { q ->
-                    ProblemEntity(
-                        id = q.id,
-                        problemSetId = setId,
-                        stem = q.stem,
-                        correctChoiceId = q.correctChoiceId,
-                        explanation = q.explanation,
-                        difficulty = q.metadata.difficulty
-                    )
-                }
+            // Use parallel batching with retry logic
+            var result: ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>? = null
 
-                val choiceEntities = questions.flatMap { q ->
-                    q.choices.map { c ->
-                        ChoiceEntity(
-                            problemId = q.id,
-                            choiceId = c.id,
-                            text = c.text
+            if (request.count > 5) {
+                // Use parallel batching for larger sets
+                generateQuestionsWithParallelBatching(request, useMockApi = false, batchSize = 5)
+                    .collect { wrapper ->
+                        result = wrapper
+                    }
+            } else {
+                // Use single request for smaller sets
+                generateQuestions(request, useMockApi = false)
+                    .collect { wrapper ->
+                        result = wrapper
+                    }
+            }
+
+            when (result) {
+                is ResultWrapper.Success -> {
+                    val questions = (result as ResultWrapper.Success).value.first
+
+                    val problemEntities = questions.map { q ->
+                        ProblemEntity(
+                            id = q.id,
+                            problemSetId = setId,
+                            stem = q.stem,
+                            correctChoiceId = q.correctChoiceId,
+                            explanation = q.explanation,
+                            difficulty = q.metadata.difficulty
                         )
                     }
-                }
 
-                problemDao.replaceProblems(setId, problemEntities, choiceEntities)
-                ResultWrapper.Success(Unit)
-            } else {
-                ResultWrapper.Error(message = response.error ?: "Failed to regenerate questions")
+                    val choiceEntities = questions.flatMap { q ->
+                        q.choices.map { c ->
+                            ChoiceEntity(
+                                problemId = q.id,
+                                choiceId = c.id,
+                                text = c.text
+                            )
+                        }
+                    }
+
+                    problemDao.replaceProblems(setId, problemEntities, choiceEntities)
+                    ResultWrapper.Success(Unit)
+                }
+                is ResultWrapper.Error -> {
+                    ResultWrapper.Error(message = (result as ResultWrapper.Error).message ?: "Failed to regenerate questions")
+                }
+                else -> {
+                    ResultWrapper.Error(message = "Failed to regenerate questions")
+                }
             }
         } catch (e: Exception) {
             ResultWrapper.Error(message = e.message ?: "Network error during regeneration", throwable = e)
