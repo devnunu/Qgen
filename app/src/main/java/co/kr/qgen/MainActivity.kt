@@ -60,10 +60,8 @@ fun QGenApp(modifier: Modifier = Modifier) {
             }
             composable("generation") {
                 GenerationScreen(
-                    onNavigateToLoading = { topic, difficulty, count, choiceCount, tags ->
-                        navController.navigate(
-                            "loading?topic=$topic&difficulty=$difficulty&count=$count&choiceCount=$choiceCount&tags=${tags ?: ""}"
-                        )
+                    onNavigateToLoading = {
+                        navController.navigate("loading")
                     },
                     onNavigateBack = { navController.popBackStack() },
                     onShowMessage = { message ->
@@ -73,19 +71,7 @@ fun QGenApp(modifier: Modifier = Modifier) {
                     }
                 )
             }
-            composable(
-                route = "loading?topic={topic}&difficulty={difficulty}&count={count}&choiceCount={choiceCount}&tags={tags}",
-                arguments = listOf(
-                    androidx.navigation.navArgument("topic") { type = androidx.navigation.NavType.StringType },
-                    androidx.navigation.navArgument("difficulty") { type = androidx.navigation.NavType.StringType },
-                    androidx.navigation.navArgument("count") { type = androidx.navigation.NavType.IntType },
-                    androidx.navigation.navArgument("choiceCount") { type = androidx.navigation.NavType.IntType },
-                    androidx.navigation.navArgument("tags") { 
-                        type = androidx.navigation.NavType.StringType
-                        nullable = true
-                    }
-                )
-            ) {
+            composable("loading") {
                 co.kr.qgen.feature.loading.LoadingScreen(
                     onNavigateToQuiz = { 
                         navController.navigate("quiz/new") {

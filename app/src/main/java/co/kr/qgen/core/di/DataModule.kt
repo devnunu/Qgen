@@ -2,6 +2,7 @@ package co.kr.qgen.core.di
 
 import co.kr.qgen.core.data.repository.QuestionRepository
 import co.kr.qgen.core.data.repository.QuestionRepositoryImpl
+import co.kr.qgen.core.data.source.local.InMemoryDataSource
 import co.kr.qgen.core.data.source.remote.QuestionRemoteDataSource
 import co.kr.qgen.core.data.source.remote.QuestionRemoteDataSourceImpl
 import org.koin.dsl.module
@@ -25,8 +26,10 @@ val dataModule = module {
     single { get<co.kr.qgen.core.data.source.local.QGenDatabase>().problemDao() }
 
     // Data Sources
-    single<QuestionRemoteDataSource> { 
-        QuestionRemoteDataSourceImpl(get()) 
+    single { InMemoryDataSource() }
+
+    single<QuestionRemoteDataSource> {
+        QuestionRemoteDataSourceImpl(get())
     }
     
     // Repositories

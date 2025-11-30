@@ -51,7 +51,7 @@ val networkModule = module {
 
 val viewModelModule = module {
     single { co.kr.qgen.core.model.QGenSessionViewModel() }
-    viewModel { co.kr.qgen.feature.generation.GenerationViewModel(get(), get()) }
+    viewModel { co.kr.qgen.feature.generation.GenerationViewModel(get(), get(), get()) }
     viewModel { co.kr.qgen.feature.home.HomeViewModel(get()) }
     viewModel { co.kr.qgen.feature.loading.LoadingViewModel(get(), get(), get()) }
     viewModel { co.kr.qgen.feature.quiz.QuizViewModel(get(), get(), get()) }

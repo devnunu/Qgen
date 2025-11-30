@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.kr.qgen.core.model.Difficulty
-import co.kr.qgen.core.model.TopicPreset
 import co.kr.qgen.core.ui.components.ExamButton
 import co.kr.qgen.core.ui.components.ExamFilterButton
 import co.kr.qgen.core.ui.theme.ExamColors
@@ -47,7 +46,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun GenerationScreen(
     viewModel: GenerationViewModel = koinViewModel(),
-    onNavigateToLoading: (topic: String, difficulty: String, count: Int, choiceCount: Int, tags: String?) -> Unit,
+    onNavigateToLoading: () -> Unit,
     onNavigateBack: () -> Unit,
     onShowMessage: (String) -> Unit
 ) {
@@ -58,13 +57,7 @@ fun GenerationScreen(
         viewModel.sideEffects.collect { effect ->
             when (effect) {
                 is GenerationSideEffect.NavigateToLoading -> {
-                    onNavigateToLoading(
-                        effect.topic,
-                        effect.difficulty,
-                        effect.count,
-                        effect.choiceCount,
-                        effect.tags
-                    )
+                    onNavigateToLoading()
                 }
                 is GenerationSideEffect.ShowError -> {
                     onShowMessage(effect.message)
@@ -135,32 +128,10 @@ fun GenerationScreen(
                     shape = ExamShapes.ButtonShape
                 )
 
-                // Tags Input
-                OutlinedTextField(
-                    value = uiState.tags,
-                    onValueChange = { viewModel.onTagsChanged(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { 
-                        Text(
-                            "태그 (예: Android, Coroutine, 면접)",
-                            style = ExamTypography.examBodyTextStyle
-                        )
-                    },
-                    enabled = true,
-                    textStyle = ExamTypography.examBodyTextStyle,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ExamColors.ExamBorderGray,
-                        unfocusedBorderColor = ExamColors.ExamButtonBorder,
-                        focusedContainerColor = ExamColors.ExamCardBackground,
-                        unfocusedContainerColor = ExamColors.ExamCardBackground
-                    ),
-                    shape = ExamShapes.ButtonShape
-                )
-
                 // Recent Topics
                 if (uiState.recentTopics.isNotEmpty()) {
                     Text(
-                        "최근 검색어",
+                        "최근 입력",
                         style = ExamTypography.examSmallTextStyle
                     )
                     FlowRow(
@@ -175,25 +146,6 @@ fun GenerationScreen(
                                 enabled = true
                             )
                         }
-                    }
-                }
-
-                // Topic Presets - ExamFilterButton
-                Text(
-                    "추천 주제",
-                    style = ExamTypography.examSmallTextStyle
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TopicPreset.entries.forEach { preset ->
-                        ExamFilterButton(
-                            text = preset.displayName,
-                            isSelected = uiState.selectedPreset == preset,
-                            onClick = { viewModel.onPresetSelected(preset) },
-                            enabled = true
-                        )
                     }
                 }
             }

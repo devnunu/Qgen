@@ -3,10 +3,11 @@ package co.kr.qgen.feature.generation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.kr.qgen.core.data.repository.QuestionRepository
+import co.kr.qgen.core.data.source.local.InMemoryDataSource
 import co.kr.qgen.core.model.Difficulty
+import co.kr.qgen.core.model.GenerateQuestionsRequest
 import co.kr.qgen.core.model.Language
 import co.kr.qgen.core.model.QGenSessionViewModel
-import co.kr.qgen.core.model.TopicPreset
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,9 +18,7 @@ import kotlinx.coroutines.launch
 
 data class GenerationUiState(
     val topic: String = "",
-    val selectedPreset: TopicPreset? = null,
     val recentTopics: List<String> = emptyList(),
-    val tags: String = "",
     val difficulty: Difficulty = Difficulty.MIXED,
     val count: Int = 10,
     val choiceCount: Int = 4,
@@ -29,19 +28,14 @@ data class GenerationUiState(
 )
 
 sealed class GenerationSideEffect {
-    data class NavigateToLoading(
-        val topic: String,
-        val difficulty: String,
-        val count: Int,
-        val choiceCount: Int,
-        val tags: String?
-    ) : GenerationSideEffect()
+    data object NavigateToLoading : GenerationSideEffect()
     data class ShowError(val message: String) : GenerationSideEffect()
 }
 
 class GenerationViewModel(
     private val questionRepository: QuestionRepository,
-    private val sessionViewModel: QGenSessionViewModel
+    private val sessionViewModel: QGenSessionViewModel,
+    private val inMemoryDataSource: InMemoryDataSource
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GenerationUiState())
@@ -51,23 +45,11 @@ class GenerationViewModel(
     val sideEffects = _sideEffects.receiveAsFlow()
 
     fun onTopicChanged(topic: String) {
-        _uiState.update { it.copy(topic = topic, selectedPreset = null) }
+        _uiState.update { it.copy(topic = topic) }
     }
-    
-    fun onTagsChanged(tags: String) {
-        _uiState.update { it.copy(tags = tags) }
-    }
-    
+
     fun onRecentTopicSelected(topic: String) {
-        _uiState.update { it.copy(topic = topic, selectedPreset = null) }
-    }
-    fun onPresetSelected(preset: TopicPreset) {
-        _uiState.update {
-            it.copy(
-                selectedPreset = preset,
-                topic = if (preset != TopicPreset.CUSTOM) preset.topicValue else it.topic
-            )
-        }
+        _uiState.update { it.copy(topic = topic) }
     }
 
     fun onDifficultyChanged(difficulty: Difficulty) {
@@ -118,21 +100,23 @@ class GenerationViewModel(
             }
             return
         }
-        
+
         // 최근 검색어 추가
         addRecentTopic(state.topic)
 
-        // 로딩 화면으로 이동 (파라미터 전달)
+        // InMemoryDataSource에 요청 저장
+        val request = GenerateQuestionsRequest(
+            topic = state.topic,
+            difficulty = state.difficulty.value,
+            count = state.count,
+            choiceCount = state.choiceCount,
+            language = state.language.value
+        )
+        inMemoryDataSource.savePendingRequest(request, null)
+
+        // 로딩 화면으로 이동
         viewModelScope.launch {
-            _sideEffects.send(
-                GenerationSideEffect.NavigateToLoading(
-                    topic = state.topic,
-                    difficulty = state.difficulty.value,
-                    count = state.count,
-                    choiceCount = state.choiceCount,
-                    tags = state.tags.ifBlank { null }
-                )
-            )
+            _sideEffects.send(GenerationSideEffect.NavigateToLoading)
         }
     }
 }

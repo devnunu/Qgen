@@ -1,10 +1,9 @@
 package co.kr.qgen.feature.loading
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.kr.qgen.core.data.repository.QuestionRepository
-import co.kr.qgen.core.model.GenerateQuestionsRequest
+import co.kr.qgen.core.data.source.local.InMemoryDataSource
 import co.kr.qgen.core.model.QGenSessionViewModel
 import co.kr.qgen.core.model.ResultWrapper
 import kotlinx.coroutines.Job
@@ -24,7 +23,7 @@ data class LoadingUiState(
 class LoadingViewModel(
     private val questionRepository: QuestionRepository,
     private val sessionViewModel: QGenSessionViewModel,
-    savedStateHandle: SavedStateHandle
+    private val inMemoryDataSource: InMemoryDataSource
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoadingUiState())
@@ -32,14 +31,7 @@ class LoadingViewModel(
 
     private var generationJob: Job? = null
 
-    private val topic: String = savedStateHandle["topic"] ?: ""
-    private val difficulty: String = savedStateHandle["difficulty"] ?: "medium"
-    private val count: Int = savedStateHandle["count"] ?: 10
-    private val choiceCount: Int = savedStateHandle["choiceCount"] ?: 4
-    private val tags: String? = savedStateHandle["tags"]
-
     init {
-        _uiState.update { it.copy(topic = topic) }
         startGeneration()
     }
 
@@ -47,13 +39,20 @@ class LoadingViewModel(
         generationJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            val request = GenerateQuestionsRequest(
-                topic = topic,
-                difficulty = difficulty,
-                count = count,
-                choiceCount = choiceCount,
-                language = "ko"
-            )
+            // InMemoryDataSource에서 요청 데이터 가져오기
+            val pendingData = inMemoryDataSource.getPendingRequest()
+            if (pendingData == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "요청 데이터를 찾을 수 없습니다"
+                    )
+                }
+                return@launch
+            }
+
+            val (request, tags) = pendingData
+            _uiState.update { it.copy(topic = request.topic) }
 
             questionRepository.generateQuestions(request, useMockApi = false)
                 .collect { result ->
@@ -70,6 +69,9 @@ class LoadingViewModel(
 
                             // 세션에 저장
                             sessionViewModel.setCurrentQuestionSet(questions, metadata)
+
+                            // 요청 데이터 정리
+                            inMemoryDataSource.clearPendingRequest()
 
                             _uiState.update {
                                 it.copy(
