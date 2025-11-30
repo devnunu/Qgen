@@ -221,23 +221,36 @@ fun BookDetailScreen(
         val setId = showRegenerateDialog!!
 
         AlertDialog(
-            onDismissRequest = { showRegenerateDialog = null },
+            onDismissRequest = {
+                if (!uiState.isRegenerating) {
+                    showRegenerateDialog = null
+                }
+            },
             title = { Text("문제 다시 생성하기") },
-            text = { Text("이 세트의 문제들을 모두 새로 생성합니다. 기존 문제들은 삭제됩니다. 계속하시겠습니까?") },
+            text = {
+                if (uiState.isRegenerating) {
+                    Text("문제를 재생성하고 있습니다. 잠시만 기다려주세요...")
+                } else {
+                    Text("이 세트의 문제들을 모두 새로 생성합니다. 기존 문제들은 삭제됩니다. 계속하시겠습니까?")
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.regenerateProblemSet(setId) { success ->
                             showRegenerateDialog = null
                         }
-                    }
+                    },
+                    enabled = !uiState.isRegenerating
                 ) {
-                    Text("확인")
+                    Text(if (uiState.isRegenerating) "재생성 중..." else "확인")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRegenerateDialog = null }) {
-                    Text("취소")
+                if (!uiState.isRegenerating) {
+                    TextButton(onClick = { showRegenerateDialog = null }) {
+                        Text("취소")
+                    }
                 }
             },
             containerColor = ExamColors.ExamCardBackground

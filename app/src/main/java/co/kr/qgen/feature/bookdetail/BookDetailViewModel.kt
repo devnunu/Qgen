@@ -23,7 +23,8 @@ data class BookDetailUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val totalProblems: Int = 0,
-    val wrongProblemsCount: Int = 0
+    val wrongProblemsCount: Int = 0,
+    val isRegenerating: Boolean = false
 )
 
 class BookDetailViewModel(
@@ -40,6 +41,7 @@ class BookDetailViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     private val _totalProblems = MutableStateFlow(0)
     private val _wrongProblemsCount = MutableStateFlow(0)
+    private val _isRegenerating = MutableStateFlow(false)
 
     val uiState: StateFlow<BookDetailUiState> = combine(
         _book,
@@ -47,7 +49,8 @@ class BookDetailViewModel(
         _isLoading,
         _errorMessage,
         _totalProblems,
-        _wrongProblemsCount
+        _wrongProblemsCount,
+        _isRegenerating
     ) { values ->
         val book = values[0] as? ProblemBookEntity
         val sets = values[1] as? List<*> ?: emptyList<ProblemSetEntity>()
@@ -55,6 +58,7 @@ class BookDetailViewModel(
         val error = values[3] as? String?
         val total = values[4] as? Int ?: 0
         val wrong = values[5] as? Int ?: 0
+        val regenerating = values[6] as? Boolean ?: false
 
         BookDetailUiState(
             book = book,
@@ -62,7 +66,8 @@ class BookDetailViewModel(
             isLoading = loading,
             errorMessage = error,
             totalProblems = total,
-            wrongProblemsCount = wrong
+            wrongProblemsCount = wrong,
+            isRegenerating = regenerating
         )
     }.stateIn(
         scope = viewModelScope,
@@ -173,12 +178,23 @@ class BookDetailViewModel(
 
     fun regenerateProblemSet(setId: String, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val result = questionRepository.regenerateProblemSet(setId)
-            if (result is ResultWrapper.Error) {
-                _errorMessage.value = result.message ?: "재생성에 실패했습니다"
+            _isRegenerating.value = true
+            _errorMessage.value = null
+
+            try {
+                val result = questionRepository.regenerateProblemSet(setId)
+                if (result is ResultWrapper.Error) {
+                    _errorMessage.value = result.message ?: "재생성에 실패했습니다"
+                    onComplete(false)
+                } else {
+                    _errorMessage.value = "문제가 성공적으로 재생성되었습니다"
+                    onComplete(true)
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "재생성 중 오류가 발생했습니다"
                 onComplete(false)
-            } else {
-                onComplete(true)
+            } finally {
+                _isRegenerating.value = false
             }
         }
     }
