@@ -93,12 +93,3 @@ export interface StructuralValidationResult {
     issues: string[];                   // 발견한 문제점 설명
 }
 
-/**
- * AI 2차 검증 결과
- */
-export interface AiVerificationResult {
-    index: number;                 // 원본 질문 인덱스
-    isValid: boolean;             // 최종적으로 사용해도 되는지
-    fixedIsCorrect?: boolean[];   // 필요하다면 수정된 isCorrect 배열
-    issueSummary?: string;        // 문제 발견 시 요약 설명 (로그용)
-}

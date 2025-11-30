@@ -8,8 +8,7 @@ import {
     AiQuestion,
     AiChoice,
     QuestionDirective,
-    StructuralValidationResult,
-    AiVerificationResult
+    StructuralValidationResult
 } from './types';
 import { pickTemplatesForRequest, getTemplateGuidelines } from './templates';
 
@@ -173,169 +172,6 @@ export function validateQuestionStructure(
     };
 }
 
-// ============================================================================
-// 2차 검증: OpenAI 자기 검열 (도메인 지식 기반)
-// ============================================================================
-
-/**
- * OpenAI를 사용하여 문제들의 정답 정확성을 검증
- *
- * NOTE: 이 함수는 추가 비용이 발생하므로, 향후 feature flag나 환경변수로
- * 켜고 끌 수 있도록 확장 가능
- *
- * @param questions 검증할 문제 배열 (AiQuestion 형식)
- * @returns AiVerificationResult 배열 (각 문제의 검증 결과)
- */
-async function verifyQuestionsWithAI(
-    questions: AiQuestion[]
-): Promise<AiVerificationResult[]> {
-    const client = getOpenAIClient();
-
-    // 배치 크기 제한 (토큰 사용량 고려)
-    const BATCH_SIZE = 10;
-    const allResults: AiVerificationResult[] = [];
-
-    // 배치 단위로 처리
-    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-        const batch = questions.slice(i, Math.min(i + BATCH_SIZE, questions.length));
-
-        // 검증용 요청 데이터 생성
-        const verificationRequest = {
-            questions: batch.map((q, idx) => ({
-                index: i + idx, // 원본 배열에서의 인덱스
-                stem: q.stem,
-                choices: q.choices.map(c => c.text), // text만 전달
-                proposedIsCorrect: q.choices.map(c => c.isCorrect)
-            }))
-        };
-
-        const systemPrompt = `
-Exam question auditor. Verify proposed "isCorrect" flags.
-
-KOREAN PATTERNS:
-- "옳은 것" → find correct (single unless "모두")
-- "옳지 않은 것" → find incorrect (single unless "모두")
-- "모두" → multiple ok
-
-TASKS:
-1. Check if each choice is factually true
-2. Compare proposed isCorrect vs reality
-3. Mark INVALID if:
-   - Single answer expected but multiple factually correct/incorrect
-   - Flags wrong or ambiguous question
-4. Provide fixedIsCorrect if salvageable
-
-JSON OUTPUT:
-{"results":[{"index":0,"isValid":true,"fixedIsCorrect":[...],"issueSummary":""},...]}
-
-Return ONLY JSON.
-`.trim();
-
-        const userPrompt = `
-Verify these ${batch.length} questions:
-
-${JSON.stringify(verificationRequest, null, 2)}
-
-For each question:
-1. Analyze the directive from the stem
-2. Check if each choice is factually correct
-3. Verify if the proposedIsCorrect flags match reality
-4. Return isValid=true only if the question is unambiguous and correctly marked
-5. If fixable, provide fixedIsCorrect array; otherwise mark isValid=false
-
-Return ONLY the JSON response.
-`.trim();
-
-        try {
-            console.log(`[Verification] Verifying batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} questions)`);
-            const startTime = Date.now();
-
-            const completion = await client.chat.completions.create({
-                model: MODEL_NAME, // 또는 더 작은 모델 사용 가능
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                temperature: 0.3, // 낮은 temperature로 일관성 확보
-                response_format: { type: "json_object" }
-            });
-
-            const content = completion.choices[0]?.message?.content;
-            if (!content) {
-                console.error(`[Verification] No content received for batch ${Math.floor(i / BATCH_SIZE) + 1}`);
-                // 검증 실패 시 모든 문제를 valid로 처리 (보수적 접근)
-                batch.forEach((_, idx) => {
-                    allResults.push({
-                        index: i + idx,
-                        isValid: true, // 검증 자체가 실패했으므로 통과시킴
-                        issueSummary: "Verification API returned no content - defaulting to valid"
-                    });
-                });
-                continue;
-            }
-
-            // JSON 파싱
-            let jsonString = content.trim();
-            jsonString = jsonString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/g, '').trim();
-
-            let parsed: any;
-            try {
-                parsed = JSON.parse(jsonString);
-            } catch (e) {
-                console.error(`[Verification] JSON parse error for batch ${Math.floor(i / BATCH_SIZE) + 1}:`, e);
-                console.error(`[Verification] Content:`, content.substring(0, 500));
-                // 파싱 실패 시 모든 문제를 valid로 처리
-                batch.forEach((_, idx) => {
-                    allResults.push({
-                        index: i + idx,
-                        isValid: true,
-                        issueSummary: "Verification JSON parse failed - defaulting to valid"
-                    });
-                });
-                continue;
-            }
-
-            // 결과 검증 및 저장
-            if (!Array.isArray(parsed.results)) {
-                console.error(`[Verification] Invalid response format - results array missing`);
-                batch.forEach((_, idx) => {
-                    allResults.push({
-                        index: i + idx,
-                        isValid: true,
-                        issueSummary: "Verification response format invalid - defaulting to valid"
-                    });
-                });
-                continue;
-            }
-
-            // 결과 병합
-            parsed.results.forEach((result: any) => {
-                allResults.push({
-                    index: result.index,
-                    isValid: result.isValid ?? true, // 기본값은 true
-                    fixedIsCorrect: result.fixedIsCorrect,
-                    issueSummary: result.issueSummary || ""
-                });
-            });
-
-            const duration = Date.now() - startTime;
-            console.log(`[Verification] Batch ${Math.floor(i / BATCH_SIZE) + 1} completed in ${duration}ms`);
-
-        } catch (error) {
-            console.error(`[Verification] Error verifying batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error);
-            // 에러 발생 시 해당 배치의 모든 문제를 valid로 처리 (보수적 접근)
-            batch.forEach((_, idx) => {
-                allResults.push({
-                    index: i + idx,
-                    isValid: true,
-                    issueSummary: `Verification error: ${error instanceof Error ? error.message : String(error)}`
-                });
-            });
-        }
-    }
-
-    return allResults;
-}
 
 /**
  * AI 문제를 내부 Question 타입으로 변환하는 헬퍼 함수
@@ -450,42 +286,89 @@ export async function generateQuestionsFromAI(
         ? `\nHARD format: Use ㄱㄴㄷㄹ multi-statement or 10+ line code with timing/flow analysis. Don't copy, create new.`
         : "";
 
-    // 4. System 메시지 (축약 버전)
+    // 4. System 메시지 (강화된 버전 - 한국 시험 출제위원 페르소나 + self-check)
     const systemPrompt = `
-Expert exam question creator. Use templates & difficulty rules.
+당신은 대한민국 국가고시 출제위원으로 20년 경력의 전문가입니다.
 
-TEMPLATES:
+[페르소나]
+- 엄격한 출제 기준 준수
+- 명확하고 모호하지 않은 문제만 출제
+- 학습 목표와 정답 간 완벽한 정합성 보장
+
+[출제 프로세스]
+문제를 생성할 때 반드시 다음 단계를 거쳐야 합니다:
+
+1단계: STEM 분석
+- stem을 읽고 directive를 명확히 판단합니다
+- "옳은 것" → single_correct (정답 1개)
+- "옳지 않은 것" → single_incorrect (오답 1개를 정답으로)
+- "옳은 것을 모두" → multi_correct (하지만 우리는 단일정답만 사용)
+- "틀린 것" → single_incorrect
+
+2단계: CHOICES 진위 판단
+- 각 선택지의 내용이 사실인지 거짓인지 명확히 판단
+- 애매하거나 논란의 여지가 있는 선택지는 사용하지 않음
+- 모든 선택지는 독립적으로 참/거짓 판단 가능해야 함
+
+3단계: 단일 정답 보정
+- directive와 각 선택지의 진위를 종합하여 isCorrect를 할당
+- **반드시 정확히 1개의 선택지만 isCorrect: true**
+- 나머지는 모두 isCorrect: false
+
+4단계: SELF-CHECK
+출력 직전에 다음을 재확인:
+- [ ] 정답이 정확히 1개인가?
+- [ ] stem의 directive와 정답이 일치하는가?
+- [ ] 모든 선택지가 명확하고 중복이 없는가?
+- [ ] explanation이 충분히 상세한가? (3-6문장)
+
+[TEMPLATES 활용]
+아래 템플릿 가이드라인을 참고하되, 반드시 새로운 문제를 창작하세요:
 ${templateGuidelines}
 
-DIFFICULTY: "${difficulty}"
+[난이도 규칙]
+난이도: "${difficulty}"
 ${difficultyGuidelines}${hardHint}
 
-JSON FORMAT:
+[ㄱㄴㄷㄹ 형식 특수 규칙]
+- 문제 stem에 "ㄱ. ...\\nㄴ. ...\\nㄷ. ..."와 같이 여러 진술이 나열된 경우
+- choices는 반드시 조합만 가능: "① ㄱ,ㄴ", "② ㄴ,ㄷ", "③ ㄱ,ㄷ", "④ ㄱ,ㄴ,ㄷ"
+- 각 진술(ㄱ,ㄴ,ㄷ,ㄹ)의 참/거짓을 먼저 판단한 후, directive에 맞는 조합을 정답으로 선택
+
+[중복 금지]
+- stem과 choices 간 텍스트 중복 최소화
+- stem에 이미 포함된 정보를 choices에서 반복하지 않음
+
+[JSON 출력 형식]
 {
   "questions": [{
-    "stem": "Question (code ok)",
-    "choices": [{"text":"...", "isCorrect":false, "reason":"..."}, ...],
-    "explanation": "Core concept + reasoning + why wrong",
+    "stem": "문제 지문 (코드 포함 가능, \\n 사용)",
+    "choices": [
+      {"text":"선택지 1", "isCorrect":false, "reason":"1-2문장 이유"},
+      {"text":"선택지 2", "isCorrect":true, "reason":"1-2문장 이유"},
+      {"text":"선택지 3", "isCorrect":false, "reason":"1-2문장 이유"},
+      {"text":"선택지 4", "isCorrect":false, "reason":"1-2문장 이유"}
+    ],
+    "explanation": "핵심 개념 + 풀이 과정 + 오답 이유 (3-6문장)",
     "difficulty": "easy|medium|hard"
   }]
 }
 
-RULES:
-- EXACTLY ONE "isCorrect":true per question
-- ${choiceCount} choices, language: ${language === "ko" ? "Korean" : "English"}
-- Code: use \\n, JSON-escape properly
-- Return ONLY JSON (no markdown blocks)
+[EXPLANATION 작성 기준]
+3~6문장으로 작성하되 다음을 포함:
+1. 핵심 개념/원리
+2. 정답 도출 논리 (1~3단계)
+3. 오답들이 틀린 이유
+4. ㄱㄴㄷㄹ 형식의 경우: "ㄱ: 참이다. 이유는 ~" / "ㄴ: 거짓이다. 이유는 ~" 식으로 각 진술별 판단 근거 명시
 
-EXPLANATION (3-6 sentences):
-- Core concept tested
-- Reasoning steps (1-3)
-- Why others wrong
-- For ㄱㄴㄷㄹ/numbered: "ㄱ: 참/거짓. 이유..." per statement
+[중요 제약]
+- 선택지는 정확히 ${choiceCount}개
+- 언어: ${language === "ko" ? "한국어" : "영어"}
+- 코드 포함 시 JSON escape 처리 (\\n, \\", 등)
+- Markdown 코드 블록 사용 금지, 순수 JSON만 반환
+- 정답은 반드시 1개
 
-STEM/CHOICES:
-- Stem: context+question. Choices: answers
-- ㄱㄴㄷㄹ in stem → choices are label combinations only (① ㄱ,ㄴ)
-- Full sentences in choices → stem is question only (no repetition)
+위 모든 규칙을 준수하여 문제를 생성하세요.
 `.trim();
 
     // 5. User 메시지: 구체적인 요청 사항
@@ -572,118 +455,64 @@ Return ONLY the JSON object. No other text.
             throw new Error("Invalid response format: 'questions' array is missing");
         }
 
-        // 9. 다단계 검증 및 Question 타입으로 변환
+        // 9. 단순화된 검증 및 Question 타입으로 변환
         // 9-1. AiQuestion 배열로 변환
         const aiQuestions: AiQuestion[] = parsed.questions;
 
-        // 9-2. 1차 검증: 구조적 검증 (로컬 규칙 기반)
-        console.log(`[Validation] Starting structural validation for ${aiQuestions.length} questions`);
-        const structurallyValidQuestions: AiQuestion[] = [];
-        const structurallyInvalidIndices: number[] = [];
+        // 9-2. 구조적 검증 및 변환
+        console.log(`[Validation] Starting validation for ${aiQuestions.length} questions`);
+        const validQuestions: Question[] = [];
+        const errors: Array<{ index: number; error: string }> = [];
 
         aiQuestions.forEach((aiQuestion, index) => {
-            const validationResult = validateQuestionStructure(aiQuestion.stem, aiQuestion.choices);
+            try {
+                // 구조적 검증: choices 개수, 정답 1개, text 비어있지 않음
+                if (!Array.isArray(aiQuestion.choices) || aiQuestion.choices.length !== choiceCount) {
+                    throw new Error(`Expected ${choiceCount} choices, got ${aiQuestion.choices.length}`);
+                }
 
-            if (!validationResult.isStructurallyValid) {
-                console.warn(
-                    `[Validation] Question ${index} failed structural validation:`,
-                    validationResult.issues.join('; ')
-                );
-                console.warn(
-                    `[Validation] Stem: "${aiQuestion.stem.substring(0, 100)}..."`,
-                    `Choices: ${aiQuestion.choices.length}, Correct count: ${validationResult.actualCorrectCount}`
-                );
-                structurallyInvalidIndices.push(index);
-            } else {
-                structurallyValidQuestions.push(aiQuestion);
+                // 각 choice 검증
+                aiQuestion.choices.forEach((choice, idx) => {
+                    if (!choice.text || choice.text.trim().length === 0) {
+                        throw new Error(`Choice ${idx} text is empty`);
+                    }
+                    if (typeof choice.isCorrect !== 'boolean') {
+                        throw new Error(`Choice ${idx} isCorrect is not boolean`);
+                    }
+                });
+
+                // 정답이 정확히 1개인지 확인
+                const correctCount = aiQuestion.choices.filter(c => c.isCorrect).length;
+                if (correctCount !== 1) {
+                    throw new Error(`Expected exactly 1 correct choice, found ${correctCount}`);
+                }
+
+                // stem, explanation 검증
+                if (!aiQuestion.stem || aiQuestion.stem.trim().length === 0) {
+                    throw new Error("Question stem is empty");
+                }
+                if (!aiQuestion.explanation || aiQuestion.explanation.trim().length === 0) {
+                    throw new Error("Explanation is empty");
+                }
+
+                // Question 타입으로 변환
+                const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
+                validQuestions.push(question);
+
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.warn(`[Validation] Question ${index} failed: ${errorMessage}`);
+                console.warn(`[Validation] Stem: "${aiQuestion.stem?.substring(0, 100)}..."`);
+                errors.push({ index, error: errorMessage });
             }
         });
 
         console.log(
-            `[Validation] Structural validation complete: ` +
-            `${structurallyValidQuestions.length} valid, ${structurallyInvalidIndices.length} invalid`
+            `[Validation] Validation complete: ` +
+            `${validQuestions.length} valid, ${errors.length} invalid`
         );
 
-        // 구조적으로 유효한 문제가 없으면 에러
-        if (structurallyValidQuestions.length === 0) {
-            throw new Error(
-                `All ${aiQuestions.length} questions failed structural validation. ` +
-                `Check question directive patterns (옳은 것, 틀린 것, etc.)`
-            );
-        }
-
-        // 9-3. 2차 검증: AI 기반 도메인 지식 검증 (validationLevel에 따라 분기)
-        const validQuestions: Question[] = [];
-        const errors: Array<{ index: number; error: string }> = [];
-
-        if (validationLevel === "none") {
-            // none: 2차 검증 생략, 구조적으로 유효한 문제만 변환
-            console.log(`[Validation] Skipping AI verification (validationLevel: none)`);
-
-            structurallyValidQuestions.forEach((aiQuestion, idx) => {
-                try {
-                    const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
-                    validQuestions.push(question);
-                } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    console.warn(`[Validation] Question ${idx} failed mapping: ${errorMessage}`);
-                    errors.push({ index: idx, error: errorMessage });
-                }
-            });
-        } else {
-            // light | strict: 2차 AI 검증 수행
-            console.log(`[Validation] Starting AI verification for ${structurallyValidQuestions.length} questions (level: ${validationLevel})`);
-            const verificationStartTime = Date.now();
-
-            const verificationResults = await verifyQuestionsWithAI(structurallyValidQuestions);
-
-            const verificationDuration = Date.now() - verificationStartTime;
-            console.log(`[Validation] AI verification completed in ${verificationDuration}ms`);
-
-            // 9-4. 검증 결과 적용 및 최종 문제 생성
-            structurallyValidQuestions.forEach((aiQuestion, idx) => {
-                const verificationResult = verificationResults[idx];
-
-                // AI 검증에서 invalid로 판정된 경우
-                if (!verificationResult.isValid) {
-                    console.warn(
-                        `[Validation] Question ${idx} marked invalid by AI verification:`,
-                        verificationResult.issueSummary
-                    );
-                    console.warn(
-                        `[Validation] Stem: "${aiQuestion.stem.substring(0, 100)}..."`
-                    );
-                    errors.push({
-                        index: idx,
-                        error: `AI verification failed: ${verificationResult.issueSummary}`
-                    });
-                    return; // 이 문제는 제외
-                }
-
-                // fixedIsCorrect가 제공된 경우 적용
-                if (verificationResult.fixedIsCorrect && verificationResult.fixedIsCorrect.length === aiQuestion.choices.length) {
-                    console.log(
-                        `[Validation] Question ${idx}: Applying AI-corrected isCorrect flags`
-                    );
-                    aiQuestion.choices.forEach((choice, choiceIdx) => {
-                        choice.isCorrect = verificationResult.fixedIsCorrect![choiceIdx];
-                    });
-                }
-
-                // Question 타입으로 변환 (기존 검증 로직 포함)
-                try {
-                    const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
-                    validQuestions.push(question);
-                } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    console.warn(`[Validation] Question ${idx} failed final mapping: ${errorMessage}`);
-                    console.warn(`[Validation] Skipping question ${idx}:`, JSON.stringify(aiQuestion, null, 2));
-                    errors.push({ index: idx, error: errorMessage });
-                }
-            });
-        }
-
-        // 10. 최종 검증: 유효한 문제 수 확인 (validationLevel에 따라 분기)
+        // 10. 최종 검증: 유효한 문제 수 확인
         if (validQuestions.length === 0) {
             throw new Error(`No valid questions generated. Total errors: ${errors.length}`);
         }
@@ -691,19 +520,8 @@ Return ONLY the JSON object. No other text.
         if (validQuestions.length < count) {
             console.warn(
                 `[OpenAI] Warning: Generated ${validQuestions.length}/${count} valid questions. ` +
-                `${errors.length} failed validation. Mode: ${validationLevel}`
+                `${errors.length} failed validation.`
             );
-
-            if (validationLevel === "strict") {
-                // strict: 부족하면 에러
-                throw new Error(
-                    `Generated only ${validQuestions.length} valid questions out of ${count} requested. ` +
-                    `${errors.length} questions failed validation.`
-                );
-            } else {
-                // none | light: 경고만 하고 진행
-                console.log(`[OpenAI] Returning ${validQuestions.length} questions in ${validationLevel} mode`);
-            }
         }
 
         const totalDuration = Date.now() - startTime;
@@ -736,49 +554,64 @@ export async function regenerateQuestion(
     const difficultyGuidelines = getDifficultyGuidelines(difficulty);
 
     const systemPrompt = `
-You are an expert at rephrasing exam questions while maintaining their educational value.
+당신은 대한민국 국가고시 출제위원으로 20년 경력의 전문가입니다.
+기존 문제를 학습 목표는 유지하되 표현을 완전히 새롭게 재작성하는 임무를 맡았습니다.
 
-Your task is to rewrite a given question with:
-- Same correct answer and learning objective
-- Different wording and phrasing
-- Same difficulty level (unless specified otherwise)
-- Plausible alternative distractors
+[재작성 프로세스]
+1단계: 원본 문제의 학습 목표 파악
+- 원본 문제가 평가하고자 하는 핵심 개념/원리 파악
+- 정답의 논리적 근거 이해
 
-DIFFICULTY RULES:
-Target difficulty is "${difficulty}".
+2단계: STEM 재작성
+- 동일한 학습 목표를 평가하되, 완전히 다른 표현으로 작성
+- directive는 동일하게 유지 ("옳은 것", "틀린 것" 등)
+- 원본과 다른 예시, 상황, 코드 사용
+
+3단계: CHOICES 재작성
+- 정답의 논리적 근거는 동일하되, 표현 완전히 변경
+- 오답들도 그럴듯하게 재작성 (단, 여전히 명확하게 틀려야 함)
+- 각 선택지의 진위를 명확히 판단
+
+4단계: 단일 정답 보정
+- **반드시 정확히 1개의 선택지만 isCorrect: true**
+- 나머지는 모두 isCorrect: false
+
+5단계: SELF-CHECK
+출력 직전에 다음을 재확인:
+- [ ] 정답이 정확히 1개인가?
+- [ ] 원본과 동일한 학습 목표를 평가하는가?
+- [ ] 표현이 충분히 달라졌는가?
+- [ ] explanation이 충분히 상세한가? (3-6문장)
+
+[난이도 규칙]
+목표 난이도: "${difficulty}"
 ${difficultyGuidelines}
 
-OUTPUT FORMAT (JSON ONLY):
+[JSON 출력 형식]
 {
-  "stem": "Rephrased question text",
+  "stem": "재작성된 문제 지문",
   "choices": [
-    {
-      "text": "Choice 1",
-      "isCorrect": false,
-      "reason": "짧은 이유"
-    },
-    {
-      "text": "Choice 2",
-      "isCorrect": true,
-      "reason": "짧은 이유"
-    },
-    ...
+    {"text":"선택지 1", "isCorrect":false, "reason":"1-2문장 이유"},
+    {"text":"선택지 2", "isCorrect":true, "reason":"1-2문장 이유"},
+    {"text":"선택지 3", "isCorrect":false, "reason":"1-2문장 이유"},
+    {"text":"선택지 4", "isCorrect":false, "reason":"1-2문장 이유"}
   ],
-  "explanation": "Updated explanation"
+  "explanation": "핵심 개념 + 풀이 과정 + 오답 이유 (3-6문장)"
 }
 
-CRITICAL CONSTRAINTS:
-- EXACTLY ONE choice must have "isCorrect": true
-- All other choices must have "isCorrect": false
-- The "reason" field should be 1-2 sentences
-- NO Markdown, NO extra text - ONLY JSON
+[EXPLANATION 작성 기준]
+3~6문장으로 작성하되 다음을 포함:
+1. 핵심 개념/원리
+2. 정답 도출 논리 (1~3단계)
+3. 오답들이 틀린 이유
+4. ㄱㄴㄷㄹ 형식의 경우: "ㄱ: 참이다. 이유는 ~" / "ㄴ: 거짓이다. 이유는 ~" 식으로 각 진술별 판단 근거 명시
 
-EXPLANATION QUALITY REQUIREMENTS:
-The "explanation" must be detailed (3-6 sentences):
-- Mention the core concept being tested
-- Explain the logical reasoning to reach the correct answer
-- For multi-statement questions (ㄱ,ㄴ,ㄷ,ㄹ or numbered), break down EACH statement with reason
-- Example: "ㄱ: 참이다. 이유는 ~" / "ㄴ: 거짓이다. 이유는 ~"
+[중요 제약]
+- 정답은 반드시 1개
+- Markdown 코드 블록 사용 금지, 순수 JSON만 반환
+- 코드 포함 시 JSON escape 처리 (\\n, \\", 등)
+
+위 모든 규칙을 준수하여 문제를 재작성하세요.
 `.trim();
 
     const userPrompt = `
