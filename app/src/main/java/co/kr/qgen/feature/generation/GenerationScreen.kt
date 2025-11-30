@@ -1,15 +1,13 @@
 package co.kr.qgen.feature.generation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -36,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.kr.qgen.core.model.Difficulty
 import co.kr.qgen.core.ui.components.ExamButton
 import co.kr.qgen.core.ui.components.ExamFilterButton
+import co.kr.qgen.core.ui.components.QGenScaffold
 import co.kr.qgen.core.ui.theme.ExamColors
 import co.kr.qgen.core.ui.theme.ExamDimensions
 import co.kr.qgen.core.ui.theme.ExamShapes
@@ -67,8 +65,7 @@ fun GenerationScreen(
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets.navigationBars,
+    QGenScaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("문제 생성", style = ExamTypography.examTitleTextStyle) },
@@ -84,6 +81,33 @@ fun GenerationScreen(
                     containerColor = ExamColors.ExamBackground
                 )
             )
+        },
+        bottomBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ExamColors.ExamBackground)
+                    .padding(horizontal = ExamDimensions.ScreenPadding, vertical = 16.dp)
+            ) {
+                // Error Message
+                if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage!!,
+                        color = ExamColors.ErrorColor,
+                        style = ExamTypography.examBodyTextStyle,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                // Generate Button
+                ExamButton(
+                    text = "문제 생성하기",
+                    onClick = { viewModel.onGenerateClicked() },
+                    enabled = uiState.topic.isNotBlank(),
+                    isLoading = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         },
         containerColor = ExamColors.ExamBackground
     ) { padding ->
@@ -112,10 +136,11 @@ fun GenerationScreen(
                     value = uiState.topic,
                     onValueChange = { viewModel.onTopicChanged(it) },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { 
+                    placeholder = {
                         Text(
                             "예: Android Coroutines",
-                            style = ExamTypography.examBodyTextStyle
+                            style = ExamTypography.examBodyTextStyle,
+                            color = ExamColors.ExamTextSecondary
                         )
                     },
                     enabled = true,
@@ -124,7 +149,9 @@ fun GenerationScreen(
                         focusedBorderColor = ExamColors.ExamBorderGray,
                         unfocusedBorderColor = ExamColors.ExamButtonBorder,
                         focusedContainerColor = ExamColors.ExamCardBackground,
-                        unfocusedContainerColor = ExamColors.ExamCardBackground
+                        unfocusedContainerColor = ExamColors.ExamCardBackground,
+                        focusedPlaceholderColor = ExamColors.ExamTextSecondary,
+                        unfocusedPlaceholderColor = ExamColors.ExamTextSecondary
                     ),
                     shape = ExamShapes.ButtonShape
                 )
@@ -169,15 +196,40 @@ fun GenerationScreen(
                 }
             }
 
-            // Count - ExamFilterButton (5, 10, 15, 20)
+            // Count - ExamFilterButton (5, 10, 15, 20) in 2x2 grid
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("문항 수", style = ExamTypography.examLabelTextStyle)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5, 10, 15, 20).forEach { count ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // First row: 5, 10
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExamFilterButton(
-                            text = "${count}문항",
-                            isSelected = uiState.count == count,
-                            onClick = { viewModel.onCountChanged(count) },
+                            text = "5문항",
+                            isSelected = uiState.count == 5,
+                            onClick = { viewModel.onCountChanged(5) },
+                            enabled = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExamFilterButton(
+                            text = "10문항",
+                            isSelected = uiState.count == 10,
+                            onClick = { viewModel.onCountChanged(10) },
+                            enabled = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // Second row: 15, 20
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExamFilterButton(
+                            text = "15문항",
+                            isSelected = uiState.count == 15,
+                            onClick = { viewModel.onCountChanged(15) },
+                            enabled = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExamFilterButton(
+                            text = "20문항",
+                            isSelected = uiState.count == 20,
+                            onClick = { viewModel.onCountChanged(20) },
                             enabled = true,
                             modifier = Modifier.weight(1f)
                         )
@@ -226,26 +278,6 @@ fun GenerationScreen(
                         uncheckedThumbColor = ExamColors.ExamCardBackground,
                         uncheckedTrackColor = ExamColors.DividerColor
                     )
-                )
-            }
-
-            // Generate Button - ExamButton (CTA)
-            ExamButton(
-                text = "문제 생성하기",
-                onClick = { viewModel.onGenerateClicked() },
-                enabled = uiState.topic.isNotBlank(),
-                isLoading = false, // 로딩 화면을 따로 띄우므로 버튼 자체 로딩은 끔
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            )
-
-            // Error Message
-            if (uiState.errorMessage != null) {
-                Text(
-                    text = uiState.errorMessage!!,
-                    color = ExamColors.ErrorColor,
-                    style = ExamTypography.examBodyTextStyle
                 )
             }
         }

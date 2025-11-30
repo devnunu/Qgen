@@ -1,6 +1,12 @@
 package co.kr.qgen.core.network
 
 import co.kr.qgen.BuildConfig
+import co.kr.qgen.core.model.QGenSessionViewModel
+import co.kr.qgen.feature.generation.GenerationViewModel
+import co.kr.qgen.feature.home.HomeViewModel
+import co.kr.qgen.feature.loading.LoadingViewModel
+import co.kr.qgen.feature.quiz.QuizViewModel
+import co.kr.qgen.feature.result.ResultViewModel
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -50,10 +56,10 @@ val networkModule = module {
 
 
 val viewModelModule = module {
-    single { co.kr.qgen.core.model.QGenSessionViewModel() }
-    viewModel { co.kr.qgen.feature.generation.GenerationViewModel(get(), get(), get()) }
-    viewModel { co.kr.qgen.feature.home.HomeViewModel(get()) }
-    viewModel { co.kr.qgen.feature.loading.LoadingViewModel(get(), get(), get()) }
-    viewModel { co.kr.qgen.feature.quiz.QuizViewModel(get(), get(), get()) }
-    viewModel { co.kr.qgen.feature.result.ResultViewModel(get()) }
+    single { QGenSessionViewModel() }
+    viewModel { GenerationViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get()) }
+    viewModel { LoadingViewModel(get(), get(), get()) }
+    viewModel { QuizViewModel(get(), get(), get()) }
+    viewModel { ResultViewModel(get()) }
 }

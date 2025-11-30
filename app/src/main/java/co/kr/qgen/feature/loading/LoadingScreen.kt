@@ -4,9 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.ArrowBack
@@ -18,7 +16,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -32,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.kr.qgen.core.ui.components.QGenScaffold
 import co.kr.qgen.core.ui.theme.ExamColors
 import co.kr.qgen.core.ui.theme.ExamTypography
 import org.koin.androidx.compose.koinViewModel
@@ -84,8 +82,7 @@ fun LoadingScreen(
         )
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets.navigationBars,
+    QGenScaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("문제 생성 중", style = ExamTypography.examTitleTextStyle) },

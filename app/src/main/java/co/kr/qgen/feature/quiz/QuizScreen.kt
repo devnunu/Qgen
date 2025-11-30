@@ -6,11 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -26,7 +24,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -45,6 +42,7 @@ import co.kr.qgen.core.model.Question
 import co.kr.qgen.core.ui.components.ExamButton
 import co.kr.qgen.core.ui.components.ExamChoiceItem
 import co.kr.qgen.core.ui.components.ExamQuestionHeader
+import co.kr.qgen.core.ui.components.QGenScaffold
 import co.kr.qgen.core.ui.components.getCircledNumber
 import co.kr.qgen.core.ui.theme.ExamColors
 import co.kr.qgen.core.ui.theme.ExamDimensions
@@ -113,8 +111,7 @@ fun QuizScreen(
         return
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets.navigationBars,
+    QGenScaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { 
