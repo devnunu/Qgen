@@ -856,7 +856,7 @@ Return ONLY the JSON object.
  * 한 번에 생성할 최대 문제 수 (배치 크기)
  * 너무 크면 timeout 위험, 너무 작으면 API 호출 횟수 증가
  */
-const MAX_QUESTIONS_PER_CALL = 10;
+const MAX_QUESTIONS_PER_CALL = 5;
 
 /**
  * 대량 문제 생성 시 병렬 배치 처리
