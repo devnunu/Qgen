@@ -1,9 +1,6 @@
 package co.kr.qgen.feature.generation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,14 +9,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.kr.qgen.R
 import co.kr.qgen.core.model.Difficulty
 import co.kr.qgen.core.model.TopicPreset
 import co.kr.qgen.core.ui.components.ExamButton
@@ -37,34 +40,61 @@ import co.kr.qgen.core.ui.theme.ExamDimensions
 import co.kr.qgen.core.ui.theme.ExamShapes
 import co.kr.qgen.core.ui.theme.ExamTypography
 import co.kr.qgen.core.ui.theme.examPaperBackground
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.rememberLottieComposition
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun GenerationScreen(
     viewModel: GenerationViewModel = koinViewModel(),
-    onNavigateToQuiz: () -> Unit,
+    onNavigateToLoading: (topic: String, difficulty: String, count: Int, choiceCount: Int, tags: String?) -> Unit,
+    onNavigateBack: () -> Unit,
     onShowMessage: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Side effects 처리
     LaunchedEffect(Unit) {
         viewModel.sideEffects.collect { effect ->
             when (effect) {
-                is GenerationSideEffect.NavigateToQuiz -> onNavigateToQuiz()
-                is GenerationSideEffect.ShowError -> onShowMessage(effect.message)
+                is GenerationSideEffect.NavigateToLoading -> {
+                    onNavigateToLoading(
+                        effect.topic,
+                        effect.difficulty,
+                        effect.count,
+                        effect.choiceCount,
+                        effect.tags
+                    )
+                }
+                is GenerationSideEffect.ShowError -> {
+                    onShowMessage(effect.message)
+                }
             }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("문제 생성", style = ExamTypography.examTitleTextStyle) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "뒤로가기"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = ExamColors.ExamBackground
+                )
+            )
+        },
+        containerColor = ExamColors.ExamBackground
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(padding)
                 .examPaperBackground()
                 .verticalScroll(rememberScrollState())
                 .padding(ExamDimensions.ScreenPadding),
@@ -92,7 +122,7 @@ fun GenerationScreen(
                             style = ExamTypography.examBodyTextStyle
                         )
                     },
-                    enabled = !uiState.isLoading,
+                    enabled = true,
                     textStyle = ExamTypography.examBodyTextStyle,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ExamColors.ExamBorderGray,
@@ -114,7 +144,7 @@ fun GenerationScreen(
                             style = ExamTypography.examBodyTextStyle
                         )
                     },
-                    enabled = !uiState.isLoading,
+                    enabled = true,
                     textStyle = ExamTypography.examBodyTextStyle,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ExamColors.ExamBorderGray,
@@ -140,7 +170,7 @@ fun GenerationScreen(
                                 text = topic,
                                 isSelected = false,
                                 onClick = { viewModel.onRecentTopicSelected(topic) },
-                                enabled = !uiState.isLoading
+                                enabled = true
                             )
                         }
                     }
@@ -160,7 +190,7 @@ fun GenerationScreen(
                             text = preset.displayName,
                             isSelected = uiState.selectedPreset == preset,
                             onClick = { viewModel.onPresetSelected(preset) },
-                            enabled = !uiState.isLoading
+                            enabled = true
                         )
                     }
                 }
@@ -178,7 +208,7 @@ fun GenerationScreen(
                             text = difficulty.displayName,
                             isSelected = uiState.difficulty == difficulty,
                             onClick = { viewModel.onDifficultyChanged(difficulty) },
-                            enabled = !uiState.isLoading
+                            enabled = true
                         )
                     }
                 }
@@ -193,7 +223,7 @@ fun GenerationScreen(
                             text = "${count}문항",
                             isSelected = uiState.count == count,
                             onClick = { viewModel.onCountChanged(count) },
-                            enabled = !uiState.isLoading,
+                            enabled = true,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -208,14 +238,14 @@ fun GenerationScreen(
                         text = "4지선다",
                         isSelected = uiState.choiceCount == 4,
                         onClick = { viewModel.onChoiceCountChanged(4) },
-                        enabled = !uiState.isLoading,
+                        enabled = true,
                         modifier = Modifier.weight(1f)
                     )
                     ExamFilterButton(
                         text = "5지선다",
                         isSelected = uiState.choiceCount == 5,
                         onClick = { viewModel.onChoiceCountChanged(5) },
-                        enabled = !uiState.isLoading,
+                        enabled = true,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -234,7 +264,7 @@ fun GenerationScreen(
                 Switch(
                     checked = uiState.useMockApi,
                     onCheckedChange = { viewModel.onMockApiToggled(it) },
-                    enabled = !uiState.isLoading,
+                    enabled = true,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ExamColors.ExamCardBackground,
                         checkedTrackColor = ExamColors.ExamBorderGray,
@@ -248,7 +278,7 @@ fun GenerationScreen(
             ExamButton(
                 text = "문제 생성하기",
                 onClick = { viewModel.onGenerateClicked() },
-                enabled = !uiState.isLoading && uiState.topic.isNotBlank(),
+                enabled = uiState.topic.isNotBlank(),
                 isLoading = false, // 로딩 화면을 따로 띄우므로 버튼 자체 로딩은 끔
                 modifier = Modifier
                     .fillMaxWidth()
@@ -263,38 +293,6 @@ fun GenerationScreen(
                     style = ExamTypography.examBodyTextStyle
                 )
             }
-        }
-
-        // Loading Screen Overlay
-        if (uiState.isLoading) {
-            LoadingScreen()
-        }
-    }
-}
-
-@Composable
-fun LoadingScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ExamColors.ExamBackground)
-            .clickable(enabled = false) {}, // 터치 차단
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.loading_animation))
-            LottieAnimation(
-                composition = composition,
-                iterations = LottieConstants.IterateForever,
-                modifier = Modifier.size(200.dp)
-            )
-            Text(
-                "문제를 생성하고 있습니다...",
-                style = ExamTypography.examTitleTextStyle
-            )
         }
     }
 }

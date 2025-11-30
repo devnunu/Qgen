@@ -58,7 +58,12 @@ fun QGenApp(modifier: Modifier = Modifier) {
             }
             composable("generation") {
                 GenerationScreen(
-                    onNavigateToQuiz = { navController.navigate("quiz/new") },
+                    onNavigateToLoading = { topic, difficulty, count, choiceCount, tags ->
+                        navController.navigate(
+                            "loading?topic=$topic&difficulty=$difficulty&count=$count&choiceCount=$choiceCount&tags=${tags ?: ""}"
+                        )
+                    },
+                    onNavigateBack = { navController.popBackStack() },
                     onShowMessage = { message ->
                         scope.launch {
                             snackbarHostState.showSnackbar(message)
@@ -67,11 +72,39 @@ fun QGenApp(modifier: Modifier = Modifier) {
                 )
             }
             composable(
+                route = "loading?topic={topic}&difficulty={difficulty}&count={count}&choiceCount={choiceCount}&tags={tags}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("topic") { type = androidx.navigation.NavType.StringType },
+                    androidx.navigation.navArgument("difficulty") { type = androidx.navigation.NavType.StringType },
+                    androidx.navigation.navArgument("count") { type = androidx.navigation.NavType.IntType },
+                    androidx.navigation.navArgument("choiceCount") { type = androidx.navigation.NavType.IntType },
+                    androidx.navigation.navArgument("tags") { 
+                        type = androidx.navigation.NavType.StringType
+                        nullable = true
+                    }
+                )
+            ) {
+                co.kr.qgen.feature.loading.LoadingScreen(
+                    onNavigateToQuiz = { 
+                        navController.navigate("quiz/new") {
+                            popUpTo("home") // 로딩 화면 제거하고 홈까지 스택 정리
+                        }
+                    },
+                    onNavigateBack = { 
+                        navController.popBackStack("home", inclusive = false)
+                    }
+                )
+            }
+            composable(
                 route = "quiz/{setId}",
                 arguments = listOf(androidx.navigation.navArgument("setId") { type = androidx.navigation.NavType.StringType })
             ) {
                 QuizScreen(
-                    onNavigateToResult = { navController.navigate("result") }
+                    onNavigateToResult = { navController.navigate("result") },
+                    onNavigateBack = {
+                        // 퀴즈 화면에서 뒤로가기 시 홈으로 (로딩 화면 건너뛰기)
+                        navController.popBackStack("home", inclusive = false)
+                    }
                 )
             }
             composable("result") {

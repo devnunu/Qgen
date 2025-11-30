@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.kr.qgen.core.data.repository.QuestionRepository
 import co.kr.qgen.core.model.Difficulty
-import co.kr.qgen.core.model.GenerateQuestionsRequest
 import co.kr.qgen.core.model.Language
 import co.kr.qgen.core.model.QGenSessionViewModel
-import co.kr.qgen.core.model.ResultWrapper
 import co.kr.qgen.core.model.TopicPreset
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,12 +25,17 @@ data class GenerationUiState(
     val choiceCount: Int = 4,
     val language: Language = Language.KO,
     val useMockApi: Boolean = false,
-    val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
 
 sealed class GenerationSideEffect {
-    data object NavigateToQuiz : GenerationSideEffect()
+    data class NavigateToLoading(
+        val topic: String,
+        val difficulty: String,
+        val count: Int,
+        val choiceCount: Int,
+        val tags: String?
+    ) : GenerationSideEffect()
     data class ShowError(val message: String) : GenerationSideEffect()
 }
 
@@ -119,44 +122,17 @@ class GenerationViewModel(
         // 최근 검색어 추가
         addRecentTopic(state.topic)
 
+        // 로딩 화면으로 이동 (파라미터 전달)
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-
-            val request = GenerateQuestionsRequest(
-                topic = state.topic,
-                difficulty = state.difficulty.value,
-                count = state.count,
-                choiceCount = state.choiceCount,
-                language = "ko" // 무조건 한국어
+            _sideEffects.send(
+                GenerationSideEffect.NavigateToLoading(
+                    topic = state.topic,
+                    difficulty = state.difficulty.value,
+                    count = state.count,
+                    choiceCount = state.choiceCount,
+                    tags = state.tags.ifBlank { null }
+                )
             )
-
-            questionRepository.generateQuestions(request, state.useMockApi)
-                .collect { result ->
-                    when (result) {
-                        is ResultWrapper.Loading -> {
-                            // Already in loading state
-                        }
-                        is ResultWrapper.Success -> {
-                            val questions = result.value.first
-                            val metadata = result.value.second
-                            
-                            // DB 저장
-                            questionRepository.saveQuestionSet(questions, metadata, state.tags.ifBlank { null })
-                            
-                            sessionViewModel.setCurrentQuestionSet(questions, metadata)
-                            _uiState.update { it.copy(isLoading = false) }
-                            _sideEffects.send(GenerationSideEffect.NavigateToQuiz)
-                        }
-                        is ResultWrapper.Error -> {
-                            _uiState.update { it.copy(isLoading = false) }
-                            _sideEffects.send(
-                                GenerationSideEffect.ShowError(
-                                    result.message ?: "문제 생성에 실패했습니다"
-                                )
-                            )
-                        }
-                    }
-                }
         }
     }
 }

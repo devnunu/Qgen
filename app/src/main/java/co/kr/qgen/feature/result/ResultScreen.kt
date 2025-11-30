@@ -1,9 +1,27 @@
 package co.kr.qgen.feature.result
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -11,10 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import co.kr.qgen.core.ui.components.*
-import co.kr.qgen.core.ui.theme.*
+import co.kr.qgen.core.ui.components.ExamButton
+import co.kr.qgen.core.ui.components.ExamQuestionContainer
+import co.kr.qgen.core.ui.components.getCircledNumber
+import co.kr.qgen.core.ui.theme.ExamColors
+import co.kr.qgen.core.ui.theme.ExamDimensions
+import co.kr.qgen.core.ui.theme.ExamTypography
+import co.kr.qgen.core.ui.theme.examPaperBackground
 import org.koin.androidx.compose.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResultScreen(
     viewModel: ResultViewModel = koinViewModel(),
@@ -34,18 +58,34 @@ fun ResultScreen(
 
     val result = quizResult!!
 
-    Column(
-        modifier = Modifier
-            .examPaperBackground()
-            .verticalScroll(rememberScrollState())
-            .padding(ExamDimensions.ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(ExamDimensions.SectionSpacing)
-    ) {
-        // Title
-        Text(
-            "채점 결과",
-            style = ExamTypography.examTitleTextStyle
-        )
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("채점 결과", style = ExamTypography.examTitleTextStyle) },
+                actions = {
+                    IconButton(onClick = onNavigateHome) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "홈으로"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = ExamColors.ExamBackground
+                )
+            )
+        },
+        containerColor = ExamColors.ExamBackground
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .examPaperBackground()
+                .verticalScroll(rememberScrollState())
+                .padding(ExamDimensions.ScreenPadding),
+            verticalArrangement = Arrangement.spacedBy(ExamDimensions.SectionSpacing)
+        ) {
 
         // Score Summary
         ExamQuestionContainer {
@@ -109,6 +149,7 @@ fun ResultScreen(
                 .fillMaxWidth()
                 .height(56.dp)
         )
+        }
     }
 }
 
