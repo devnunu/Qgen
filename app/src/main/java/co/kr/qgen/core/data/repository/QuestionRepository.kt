@@ -25,11 +25,6 @@ interface QuestionRepository {
         useMockApi: Boolean = false
     ): Flow<ResultWrapper<Pair<List<Question>, QuestionSetMetadata>>>
 
-    fun generateQuestionsWithBatching(
-        request: GenerateQuestionsRequest,
-        useMockApi: Boolean = false
-    ): Flow<ResultWrapper<co.kr.qgen.core.model.BatchGenerationResult>>
-
     suspend fun checkHealth(): ResultWrapper<Boolean>
 
     // Local DB methods
@@ -77,77 +72,6 @@ class QuestionRepositoryImpl(
             }
         } catch (e: Exception) {
             emit(ResultWrapper.Error(message = e.message ?: "Network error occurred", throwable = e))
-        }
-    }
-
-    override fun generateQuestionsWithBatching(
-        request: GenerateQuestionsRequest,
-        useMockApi: Boolean
-    ): Flow<ResultWrapper<co.kr.qgen.core.model.BatchGenerationResult>> = flow {
-        emit(ResultWrapper.Loading)
-
-        val totalQuestions = request.count
-        val batchSize = 5
-
-        // Calculate batches
-        val batches = (totalQuestions + batchSize - 1) / batchSize  // Ceiling division
-        val allQuestions = mutableListOf<Question>()
-        val failedBatches = mutableListOf<Int>()
-
-        // Process batches sequentially
-        for (batchIndex in 0 until batches) {
-            val start = batchIndex * batchSize
-            val end = minOf(start + batchSize, totalQuestions)
-            val batchCount = end - start
-
-            // Emit progress
-            emit(ResultWrapper.Progress(
-                progress = co.kr.qgen.core.model.BatchProgress(
-                    currentBatch = batchIndex + 1,
-                    totalBatches = batches,
-                    questionsGenerated = allQuestions.size,
-                    totalQuestions = totalQuestions
-                )
-            ))
-
-            // Create batch request
-            val batchRequest = request.copy(count = batchCount)
-
-            try {
-                val response = if (useMockApi) {
-                    remoteDataSource.generateMockQuestions(batchRequest)
-                } else {
-                    remoteDataSource.generateQuestions(batchRequest)
-                }
-
-                if (response.success && response.data != null) {
-                    allQuestions.addAll(response.data.questions)
-                } else {
-                    failedBatches.add(batchIndex + 1)
-                }
-            } catch (e: Exception) {
-                failedBatches.add(batchIndex + 1)
-            }
-        }
-
-        // Emit final result
-        if (allQuestions.isEmpty()) {
-            emit(ResultWrapper.Error(message = "모든 배치가 실패했습니다"))
-        } else {
-            val metadata = QuestionSetMetadata(
-                topic = request.topic,
-                difficulty = request.difficulty,
-                totalCount = allQuestions.size,
-                language = request.language ?: "ko"
-            )
-
-            emit(ResultWrapper.Success(
-                co.kr.qgen.core.model.BatchGenerationResult(
-                    allQuestions = allQuestions,
-                    metadata = metadata,
-                    failedBatches = failedBatches
-                )
-            ))
         }
     }
 
