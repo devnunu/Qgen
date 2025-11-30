@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
@@ -50,8 +51,8 @@ val networkModule = module {
 
 val viewModelModule = module {
     single { co.kr.qgen.core.model.QGenSessionViewModel() }
-    factory { co.kr.qgen.feature.generation.GenerationViewModel(get(), get()) }
-    factory { co.kr.qgen.feature.home.HomeViewModel(get()) }
-    factory { co.kr.qgen.feature.quiz.QuizViewModel(get()) }
-    factory { co.kr.qgen.feature.result.ResultViewModel(get()) }
+    viewModel { co.kr.qgen.feature.generation.GenerationViewModel(get(), get()) }
+    viewModel { co.kr.qgen.feature.home.HomeViewModel(get()) }
+    viewModel { co.kr.qgen.feature.quiz.QuizViewModel(get(), get(), get()) }
+    viewModel { co.kr.qgen.feature.result.ResultViewModel(get()) }
 }

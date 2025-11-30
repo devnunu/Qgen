@@ -8,6 +8,7 @@ import co.kr.qgen.core.data.source.local.entity.ProblemSetEntity
 import co.kr.qgen.core.data.source.remote.QuestionRemoteDataSource
 import co.kr.qgen.core.model.GenerateQuestionsRequest
 import co.kr.qgen.core.model.Question
+import co.kr.qgen.core.model.QuestionChoice
 import co.kr.qgen.core.model.QuestionSetMetadata
 import co.kr.qgen.core.model.ResultWrapper
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,7 @@ interface QuestionRepository {
     suspend fun updateTitle(setId: String, title: String)
     suspend fun getProblemSetById(setId: String): ProblemSetEntity?
     suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit>
+    suspend fun getQuestionsBySetId(setId: String): List<Question>
 }
 
 class QuestionRepositoryImpl(
@@ -147,6 +149,7 @@ class QuestionRepositoryImpl(
     }
 
     override suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit> {
+        // ... (existing implementation)
         val problemSet = problemSetDao.getSetById(setId) ?: return ResultWrapper.Error(message = "Problem set not found")
 
         val request = GenerateQuestionsRequest(
@@ -189,6 +192,32 @@ class QuestionRepositoryImpl(
             }
         } catch (e: Exception) {
             ResultWrapper.Error(message = e.message ?: "Network error during regeneration", throwable = e)
+        }
+    }
+
+    override suspend fun getQuestionsBySetId(setId: String): List<Question> {
+        val problemEntities = problemDao.getProblemsBySetId(setId)
+        val problemSet = problemSetDao.getSetById(setId) ?: return emptyList()
+        
+        return problemEntities.map { p ->
+            val choices = problemDao.getChoicesByProblemId(p.id).map { c: ChoiceEntity ->
+                QuestionChoice(
+                    id = c.choiceId,
+                    text = c.text
+                )
+            }
+            
+            Question(
+                id = p.id,
+                stem = p.stem,
+                choices = choices,
+                correctChoiceId = p.correctChoiceId,
+                explanation = p.explanation,
+                metadata = co.kr.qgen.core.model.QuestionMetadata(
+                    topic = problemSet.topic,
+                    difficulty = p.difficulty
+                )
+            )
         }
     }
 }

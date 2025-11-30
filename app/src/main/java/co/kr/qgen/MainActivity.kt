@@ -16,11 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import co.kr.qgen.core.ui.theme.QGenExamTheme
 import co.kr.qgen.feature.generation.GenerationScreen
 import co.kr.qgen.feature.home.HomeScreen
 import co.kr.qgen.feature.quiz.QuizScreen
 import co.kr.qgen.feature.result.ResultScreen
-import co.kr.qgen.core.ui.theme.QGenExamTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -47,12 +47,18 @@ fun QGenApp(modifier: Modifier = Modifier) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "generation",
+            startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable("home") {
+                HomeScreen(
+                    onNavigateToQuiz = { setId -> navController.navigate("quiz/$setId") },
+                    onNavigateToGeneration = { navController.navigate("generation") }
+                )
+            }
             composable("generation") {
                 GenerationScreen(
-                    onNavigateToQuiz = { navController.navigate("quiz") },
+                    onNavigateToQuiz = { navController.navigate("quiz/new") },
                     onShowMessage = { message ->
                         scope.launch {
                             snackbarHostState.showSnackbar(message)
@@ -60,7 +66,10 @@ fun QGenApp(modifier: Modifier = Modifier) {
                     }
                 )
             }
-            composable("quiz") {
+            composable(
+                route = "quiz/{setId}",
+                arguments = listOf(androidx.navigation.navArgument("setId") { type = androidx.navigation.NavType.StringType })
+            ) {
                 QuizScreen(
                     onNavigateToResult = { navController.navigate("result") }
                 )
@@ -68,8 +77,8 @@ fun QGenApp(modifier: Modifier = Modifier) {
             composable("result") {
                 ResultScreen(
                     onNavigateHome = {
-                        navController.navigate("generation") {
-                            popUpTo("generation") { inclusive = true }
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = true }
                         }
                     }
                 )

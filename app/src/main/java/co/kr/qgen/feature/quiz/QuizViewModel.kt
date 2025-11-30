@@ -1,7 +1,9 @@
 package co.kr.qgen.feature.quiz
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.kr.qgen.core.data.repository.QuestionRepository
 import co.kr.qgen.core.model.QGenSessionViewModel
 import co.kr.qgen.core.model.Question
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +35,9 @@ data class ResultItem(
 )
 
 class QuizViewModel(
-    private val sessionViewModel: QGenSessionViewModel
+    private val sessionViewModel: QGenSessionViewModel,
+    private val questionRepository: QuestionRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(QuizUiState())
@@ -41,9 +45,43 @@ class QuizViewModel(
 
     private val _shouldNavigateToResult = MutableStateFlow(false)
     val shouldNavigateToResult: StateFlow<Boolean> = _shouldNavigateToResult.asStateFlow()
+    
+    private val setId: String? = savedStateHandle["setId"]
 
     init {
-        loadQuestions()
+        if (!setId.isNullOrBlank() && setId != "new") {
+            loadQuestionsFromDb(setId)
+        } else {
+            loadQuestions()
+        }
+    }
+
+    private fun loadQuestionsFromDb(setId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val questions = questionRepository.getQuestionsBySetId(setId)
+            if (questions.isNotEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        questions = questions,
+                        isLoading = false
+                    )
+                }
+                
+                val problemSet = questionRepository.getProblemSetById(setId)
+                if (problemSet != null) {
+                    val metadata = co.kr.qgen.core.model.QuestionSetMetadata(
+                        topic = problemSet.topic,
+                        difficulty = problemSet.difficulty,
+                        totalCount = problemSet.count,
+                        language = problemSet.language
+                    )
+                    sessionViewModel.setCurrentQuestionSet(questions, metadata)
+                }
+            } else {
+                 _uiState.update { it.copy(isLoading = false, error = "문제를 불러올 수 없습니다.") }
+            }
+        }
     }
 
     private fun loadQuestions() {
