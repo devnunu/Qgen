@@ -35,6 +35,7 @@ interface QuestionRepository {
     suspend fun getProblemSetById(setId: String): ProblemSetEntity?
     suspend fun regenerateProblemSet(setId: String): ResultWrapper<Unit>
     suspend fun getQuestionsBySetId(setId: String): List<Question>
+    suspend fun deleteProblemSet(setId: String)
 }
 
 class QuestionRepositoryImpl(
@@ -198,7 +199,7 @@ class QuestionRepositoryImpl(
     override suspend fun getQuestionsBySetId(setId: String): List<Question> {
         val problemEntities = problemDao.getProblemsBySetId(setId)
         val problemSet = problemSetDao.getSetById(setId) ?: return emptyList()
-        
+
         return problemEntities.map { p ->
             val choices = problemDao.getChoicesByProblemId(p.id).map { c: ChoiceEntity ->
                 QuestionChoice(
@@ -206,7 +207,7 @@ class QuestionRepositoryImpl(
                     text = c.text
                 )
             }
-            
+
             Question(
                 id = p.id,
                 stem = p.stem,
@@ -219,5 +220,10 @@ class QuestionRepositoryImpl(
                 )
             )
         }
+    }
+
+    override suspend fun deleteProblemSet(setId: String) {
+        problemDao.deleteProblemsBySetId(setId)
+        problemSetDao.deleteSet(setId)
     }
 }

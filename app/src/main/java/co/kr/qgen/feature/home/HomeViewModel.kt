@@ -136,4 +136,10 @@ class HomeViewModel(
     fun clearErrorMessage() {
         _errorMessage.value = null
     }
+
+    fun deleteProblemSet(setId: String) {
+        viewModelScope.launch {
+            questionRepository.deleteProblemSet(setId)
+        }
+    }
 }

@@ -65,9 +65,10 @@ fun HomeScreen(
     onNavigateToGeneration: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
     var showRenameDialog by remember { mutableStateOf<String?>(null) }
     var showRegenerateDialog by remember { mutableStateOf<String?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<String?>(null) }
     
     // Rename Dialog
     if (showRenameDialog != null) {
@@ -100,14 +101,15 @@ fun HomeScreen(
                 TextButton(onClick = { showRenameDialog = null }) {
                     Text("취소")
                 }
-            }
+            },
+            containerColor = ExamColors.ExamCardBackground
         )
     }
     
     // Regenerate Dialog
     if (showRegenerateDialog != null) {
         val setId = showRegenerateDialog!!
-        
+
         AlertDialog(
             onDismissRequest = { showRegenerateDialog = null },
             title = { Text("문제 다시 생성하기") },
@@ -126,7 +128,35 @@ fun HomeScreen(
                 TextButton(onClick = { showRegenerateDialog = null }) {
                     Text("취소")
                 }
-            }
+            },
+            containerColor = ExamColors.ExamCardBackground
+        )
+    }
+
+    // Delete Dialog
+    if (showDeleteDialog != null) {
+        val setId = showDeleteDialog!!
+
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("세트 삭제") },
+            text = { Text("이 세트를 삭제하시겠습니까? 삭제된 세트는 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteProblemSet(setId)
+                        showDeleteDialog = null
+                    }
+                ) {
+                    Text("삭제", color = ExamColors.ErrorColor)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("취소")
+                }
+            },
+            containerColor = ExamColors.ExamCardBackground
         )
     }
 
@@ -212,7 +242,8 @@ fun HomeScreen(
                         onClick = { onNavigateToQuiz(set.id) },
                         onFavoriteClick = { viewModel.toggleFavorite(set.id) },
                         onRenameClick = { showRenameDialog = set.id },
-                        onRegenerateClick = { showRegenerateDialog = set.id }
+                        onRegenerateClick = { showRegenerateDialog = set.id },
+                        onDeleteClick = { showDeleteDialog = set.id }
                     )
                 }
             }
@@ -242,7 +273,8 @@ fun ProblemSetCard(
     onClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onRenameClick: () -> Unit,
-    onRegenerateClick: () -> Unit
+    onRegenerateClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     
@@ -291,7 +323,8 @@ fun ProblemSetCard(
                         }
                         DropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(ExamColors.ExamCardBackground)
                         ) {
                             DropdownMenuItem(
                                 text = { Text("문제 다시 생성하기") },
@@ -305,6 +338,13 @@ fun ProblemSetCard(
                                 onClick = {
                                     showMenu = false
                                     onRenameClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("세트 삭제하기", color = ExamColors.ErrorColor) },
+                                onClick = {
+                                    showMenu = false
+                                    onDeleteClick()
                                 }
                             )
                         }
