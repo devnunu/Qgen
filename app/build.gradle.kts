@@ -69,6 +69,7 @@ dependencies {
 
     // Lifecycle
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.lottie.compose)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

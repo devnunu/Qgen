@@ -49,6 +49,9 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 # Lifecycle
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 
+# Lottie
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version = "6.4.0" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

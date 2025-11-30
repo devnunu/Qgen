@@ -3,7 +3,12 @@ package co.kr.qgen.feature.generation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.kr.qgen.core.data.repository.QuestionRepository
-import co.kr.qgen.core.model.*
+import co.kr.qgen.core.model.Difficulty
+import co.kr.qgen.core.model.GenerateQuestionsRequest
+import co.kr.qgen.core.model.Language
+import co.kr.qgen.core.model.QGenSessionViewModel
+import co.kr.qgen.core.model.ResultWrapper
+import co.kr.qgen.core.model.TopicPreset
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,8 +20,9 @@ import kotlinx.coroutines.launch
 data class GenerationUiState(
     val topic: String = "",
     val selectedPreset: TopicPreset? = null,
+    val recentTopics: List<String> = emptyList(),
     val difficulty: Difficulty = Difficulty.MIXED,
-    val count: Int = 20,
+    val count: Int = 10,
     val choiceCount: Int = 4,
     val language: Language = Language.KO,
     val useMockApi: Boolean = false,
@@ -43,6 +49,10 @@ class GenerationViewModel(
     fun onTopicChanged(topic: String) {
         _uiState.update { it.copy(topic = topic, selectedPreset = null) }
     }
+    
+    fun onRecentTopicSelected(topic: String) {
+        _uiState.update { it.copy(topic = topic, selectedPreset = null) }
+    }
 
     fun onPresetSelected(preset: TopicPreset) {
         _uiState.update {
@@ -58,19 +68,31 @@ class GenerationViewModel(
     }
 
     fun onCountChanged(count: Int) {
-        _uiState.update { it.copy(count = count.coerceIn(1, 50)) }
+        // 5~20개로 제한
+        _uiState.update { it.copy(count = count.coerceIn(5, 20)) }
     }
 
     fun onChoiceCountChanged(choiceCount: Int) {
         _uiState.update { it.copy(choiceCount = choiceCount) }
     }
 
-    fun onLanguageChanged(language: Language) {
-        _uiState.update { it.copy(language = language) }
-    }
-
     fun onMockApiToggled(useMock: Boolean) {
         _uiState.update { it.copy(useMockApi = useMock) }
+    }
+    
+    private fun addRecentTopic(topic: String) {
+        if (topic.isBlank()) return
+        
+        val current = _uiState.value.recentTopics.toMutableList()
+        current.remove(topic) // 중복 제거
+        current.add(0, topic) // 최신순 추가
+        
+        // 최대 3개 유지
+        if (current.size > 3) {
+            current.removeAt(current.lastIndex)
+        }
+        
+        _uiState.update { it.copy(recentTopics = current) }
     }
 
     fun onGenerateClicked() {
@@ -84,12 +106,15 @@ class GenerationViewModel(
             return
         }
 
-        if (state.count !in 1..50) {
+        if (state.count !in 1..20) {
             viewModelScope.launch {
-                _sideEffects.send(GenerationSideEffect.ShowError("문항 수는 1~50 사이여야 합니다"))
+                _sideEffects.send(GenerationSideEffect.ShowError("문항 수는 1~20 사이여야 합니다"))
             }
             return
         }
+        
+        // 최근 검색어 추가
+        addRecentTopic(state.topic)
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -99,7 +124,7 @@ class GenerationViewModel(
                 difficulty = state.difficulty.value,
                 count = state.count,
                 choiceCount = state.choiceCount,
-                language = state.language.value
+                language = "ko" // 무조건 한국어
             )
 
             questionRepository.generateQuestions(request, state.useMockApi)
