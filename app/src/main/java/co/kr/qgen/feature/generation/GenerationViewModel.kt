@@ -2,8 +2,8 @@ package co.kr.qgen.feature.generation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.kr.qgen.core.data.repository.QuestionRepository
 import co.kr.qgen.core.model.*
-import co.kr.qgen.core.network.QGenApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +30,7 @@ sealed class GenerationSideEffect {
 }
 
 class GenerationViewModel(
-    private val api: QGenApi,
+    private val questionRepository: QuestionRepository,
     private val sessionViewModel: QGenSessionViewModel
 ) : ViewModel() {
 
@@ -94,48 +94,37 @@ class GenerationViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            try {
-                val request = GenerateQuestionsRequest(
-                    topic = state.topic,
-                    difficulty = state.difficulty.value,
-                    count = state.count,
-                    choiceCount = state.choiceCount,
-                    language = state.language.value
-                )
+            val request = GenerateQuestionsRequest(
+                topic = state.topic,
+                difficulty = state.difficulty.value,
+                count = state.count,
+                choiceCount = state.choiceCount,
+                language = state.language.value
+            )
 
-                val response = if (state.useMockApi) {
-                    api.mockQuestions(request)
-                } else {
-                    api.generateQuestions(request)
+            questionRepository.generateQuestions(request, state.useMockApi)
+                .collect { result ->
+                    when (result) {
+                        is ResultWrapper.Loading -> {
+                            // Already in loading state
+                        }
+                        is ResultWrapper.Success -> {
+                            val questions = result.value.first
+                            val metadata = result.value.second
+                            sessionViewModel.setCurrentQuestionSet(questions, metadata)
+                            _uiState.update { it.copy(isLoading = false) }
+                            _sideEffects.send(GenerationSideEffect.NavigateToQuiz)
+                        }
+                        is ResultWrapper.Error -> {
+                            _uiState.update { it.copy(isLoading = false) }
+                            _sideEffects.send(
+                                GenerationSideEffect.ShowError(
+                                    result.message ?: "문제 생성에 실패했습니다"
+                                )
+                            )
+                        }
+                    }
                 }
-
-                if (response.success && response.data != null) {
-                    val questions = response.data.questions
-                    val metadata = QuestionSetMetadata(
-                        topic = state.topic,
-                        difficulty = state.difficulty.value,
-                        totalCount = questions.size,
-                        language = state.language.value
-                    )
-                    
-                    sessionViewModel.setCurrentQuestionSet(questions, metadata)
-                    _sideEffects.send(GenerationSideEffect.NavigateToQuiz)
-                } else {
-                    _sideEffects.send(
-                        GenerationSideEffect.ShowError(
-                            response.error ?: "문제 생성에 실패했습니다"
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                _sideEffects.send(
-                    GenerationSideEffect.ShowError(
-                        e.message ?: "네트워크 오류가 발생했습니다"
-                    )
-                )
-            } finally {
-                _uiState.update { it.copy(isLoading = false) }
-            }
         }
     }
 }

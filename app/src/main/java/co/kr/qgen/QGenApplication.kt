@@ -1,6 +1,7 @@
 package co.kr.qgen
 
 import android.app.Application
+import co.kr.qgen.core.di.dataModule
 import co.kr.qgen.core.network.networkModule
 import co.kr.qgen.core.network.viewModelModule
 import org.koin.android.ext.koin.androidContext
@@ -14,7 +15,11 @@ class QGenApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@QGenApplication)
-            modules(networkModule, viewModelModule)
+            modules(
+                networkModule,
+                dataModule,
+                viewModelModule
+            )
         }
     }
 }
