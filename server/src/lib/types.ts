@@ -21,6 +21,14 @@ export interface Question {
     };
 }
 
+/**
+ * 검증 레벨 타입
+ * - none: 구조적 검증만 수행, AI 검증 생략
+ * - light: 구조 + AI 검증, 부족해도 에러 안 냄 (기본값)
+ * - strict: 모든 검증 수행, 부족 시 에러
+ */
+export type ValidationLevel = "none" | "light" | "strict";
+
 export interface GenerateQuestionsRequest {
     topic: string;
     description?: string; // 주제에 대한 상세 설명 (최대 300자) - AI에게 추가 컨텍스트 제공
@@ -29,6 +37,7 @@ export interface GenerateQuestionsRequest {
     count: number; // 1 ~ 50
     choiceCount?: 4 | 5; // Default 4
     language?: "ko" | "en"; // Default "ko"
+    validationLevel?: ValidationLevel; // 검증 레벨 (기본값: "light")
 }
 
 export interface GenerateQuestionsResponse {

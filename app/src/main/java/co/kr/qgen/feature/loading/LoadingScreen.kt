@@ -151,16 +151,6 @@ fun LoadingScreen(
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
                 if (uiState.isLoading) {
-                    // Animated dots for loading text
-                    var dotCount by remember { mutableStateOf(1) }
-
-                    LaunchedEffect(Unit) {
-                        while (true) {
-                            kotlinx.coroutines.delay(1000)
-                            dotCount = if (dotCount >= 3) 1 else dotCount + 1
-                        }
-                    }
-
                     // Circular progress indicator (always shown)
                     CircularProgressIndicator(
                         modifier = Modifier.size(64.dp),
@@ -168,7 +158,7 @@ fun LoadingScreen(
                     )
 
                     Text(
-                        text = "AI가 문제를 생성하고 있습니다${".".repeat(dotCount)}",
+                        text = "AI가 문제를 생성하고 있습니다",
                         style = ExamTypography.examBodyTextStyle,
                         color = ExamColors.ExamTextPrimary
                     )

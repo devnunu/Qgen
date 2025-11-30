@@ -14,50 +14,23 @@ import {
 import { pickTemplatesForRequest, getTemplateGuidelines } from './templates';
 
 /**
- * 난이도별 가이드라인 제공
- * 프로그래밍/상식/학교 과목 등 모든 도메인에 적용 가능한 난이도 규칙
+ * 난이도별 가이드라인 제공 (축약 버전)
  */
 export function getDifficultyGuidelines(
     difficulty: GenerateQuestionsRequest["difficulty"]
 ): string {
     switch (difficulty) {
         case "easy":
-            return `
-EASY questions should:
-- Test a single basic concept, definition, term, or simple fact
-- Use 1-2 sentences or very short code snippet
-- Be answerable in under 10 seconds if the concept is known
-- Have distractors that are easily filtered out with basic knowledge
-`.trim();
+            return `EASY: Single concept, 1-2 sentences, <10sec answer, obvious distractors`;
 
         case "medium":
-            return `
-MEDIUM questions should:
-- Require at least 1 step of reasoning or short scenario/code interpretation
-- Combine 2 closely related concepts
-- Use 2-4 sentences or medium-length code snippet (5-10 lines)
-- Include at least 1 distractor that represents a common real-world mistake
-`.trim();
+            return `MEDIUM: 1+ reasoning step, 2 related concepts, 2-4 sentences/5-10 lines code, include common mistake`;
 
         case "hard":
-            return `
-HARD questions should match Korean mock exam/certification test 4-point difficulty:
-- Involve 2+ concepts/conditions simultaneously and their interactions
-- Use multiple sentences, bulleted conditions, or 10+ lines of code
-- Require 3+ steps of reasoning (condition analysis → case evaluation → conclusion)
-- Have plausible distractors that differ only by one decisive factor
-- Each distractor should seem correct unless carefully analyzed
-- For concept questions: use multi-statement format (ㄱ,ㄴ,ㄷ,ㄹ) with combination choices
-- For code questions: require understanding of timing, execution flow, or subtle language features
-`.trim();
+            return `HARD: 2+ concepts+conditions, 3+ reasoning steps, ㄱㄴㄷㄹ format or 10+ lines code, all distractors plausible`;
 
         case "mixed":
-            return `
-MIXED difficulty should distribute questions as:
-- ~30% easy, ~40% medium, ~30% hard
-- Set each question's "difficulty" field to its actual difficulty
-- Follow the respective easy/medium/hard rules for each individual question
-`.trim();
+            return `MIXED: 30% easy, 40% medium, 30% hard. Set "difficulty" field correctly per question`;
 
         default:
             return "";
@@ -237,59 +210,25 @@ async function verifyQuestionsWithAI(
         };
 
         const systemPrompt = `
-You are an expert exam question auditor specializing in Korean high school and certification exam standards.
+Exam question auditor. Verify proposed "isCorrect" flags.
 
-You receive multiple-choice questions with a proposed "isCorrect" flag per choice.
-For each question, you must:
+KOREAN PATTERNS:
+- "옳은 것" → find correct (single unless "모두")
+- "옳지 않은 것" → find incorrect (single unless "모두")
+- "모두" → multiple ok
 
-1. Understand the question directive (find correct answer, find incorrect answer, choose all that apply, etc.)
-   - Korean patterns to look for:
-     * "옳은 것" / "올바른 것" → find correct answer(s)
-     * "옳지 않은 것" / "틀린 것" → find incorrect answer(s)
-     * "모두 고르시오" → multiple answers allowed
-     * If no "모두" → typically single answer expected
+TASKS:
+1. Check if each choice is factually true
+2. Compare proposed isCorrect vs reality
+3. Mark INVALID if:
+   - Single answer expected but multiple factually correct/incorrect
+   - Flags wrong or ambiguous question
+4. Provide fixedIsCorrect if salvageable
 
-2. Judge the factual truth of each choice based on standard technical knowledge
-   - Use your knowledge of the topic to determine if each statement is factually correct
-   - Consider edge cases and subtle differences
+JSON OUTPUT:
+{"results":[{"index":0,"isValid":true,"fixedIsCorrect":[...],"issueSummary":""},...]}
 
-3. Compare the proposed isCorrect flags with what they SHOULD be
-   - Does the question ask for correct items but mark incorrect ones?
-   - Are there multiple correct answers when only one should exist?
-   - Are all choices actually incorrect when one should be correct?
-
-4. Mark the question as INVALID if:
-   - The question asks for a single correct answer but multiple choices are factually correct
-   - The question asks for a single incorrect answer but multiple choices are factually incorrect or all are correct
-   - The proposed isCorrect flags are wrong (don't match the actual truth values)
-   - The question is ambiguous or lacks sufficient information to determine correctness
-
-5. If the proposed flags are wrong but the question is salvageable, provide corrected isCorrect array
-
-CRITICAL RULES:
-- For "옳은 것을 고르시오" (find correct answer): If multiple choices are factually true, mark as INVALID
-- For "옳지 않은 것을 고르시오" (find incorrect answer): If multiple choices are factually false, mark as INVALID
-- Korean mock exams typically require EXACTLY ONE correct answer unless "모두" is specified
-- If you're uncertain about domain knowledge, mark isValid=false with explanation
-
-OUTPUT FORMAT (JSON ONLY):
-{
-  "results": [
-    {
-      "index": 0,
-      "isValid": true,
-      "fixedIsCorrect": [false, true, false, false],
-      "issueSummary": ""
-    },
-    {
-      "index": 1,
-      "isValid": false,
-      "issueSummary": "Multiple choices are factually correct, but the question asks for a single answer."
-    }
-  ]
-}
-
-Return ONLY valid JSON. No markdown, no code blocks, no extra text.
+Return ONLY JSON.
 `.trim();
 
         const userPrompt = `
@@ -477,12 +416,25 @@ function mapAiQuestionToInternalQuestion(
  * Skeletal Question Generation (isCorrect 기반)
  * 템플릿 기반으로 문제를 생성하여 토큰 사용량과 응답 시간을 줄임
  */
+/**
+ * AI로부터 문제를 생성 (단일 호출용)
+ * NOTE: 대량 생성(10개 이상)은 generateQuestionsWithBatching 사용 권장
+ */
 export async function generateQuestionsFromAI(
     request: GenerateQuestionsRequest
 ): Promise<GenerateQuestionsResponse> {
     const client = getOpenAIClient();
 
-    const { topic, description, subtopics, difficulty, count, choiceCount = 4, language = "ko" } = request;
+    const {
+        topic,
+        description,
+        subtopics,
+        difficulty,
+        count,
+        choiceCount = 4,
+        language = "ko",
+        validationLevel = "light" // 기본값: light
+    } = request;
 
     // 1. 요청에 맞는 템플릿 선택
     const selectedTemplates = pickTemplatesForRequest(request);
@@ -493,181 +445,47 @@ export async function generateQuestionsFromAI(
     // 2. 난이도 가이드라인 가져오기
     const difficultyGuidelines = getDifficultyGuidelines(difficulty);
 
-    // 3. Hard 난이도 예시 문제 (참고용)
-    const hardExamples = (difficulty === "hard" || difficulty === "mixed") ? `
+    // 3. Hard 문제 구조 힌트 (축약 버전)
+    const hardHint = (difficulty === "hard" || difficulty === "mixed")
+        ? `\nHARD format: Use ㄱㄴㄷㄹ multi-statement or 10+ line code with timing/flow analysis. Don't copy, create new.`
+        : "";
 
-HARD EXAMPLES (DO NOT COPY CONTENT, ONLY IMITATE STRUCTURE AND DEPTH):
-
-[Example 1 - Conceptual with Multi-Statement Format]
-다음 중 Android 권한 시스템에 대한 설명으로 옳지 않은 것을 고르시오.
-
-ㄱ. targetSdkVersion 23 미만 앱은 설치 시 모든 위험 권한을 일괄 승인받는다.
-ㄴ. targetSdkVersion 30 이상에서는 전경/백그라운드 위치 권한을 분리 요청해야 한다.
-ㄷ. '다시 묻지 않음' 활성화 시 사용자는 시스템 설정에서 직접 권한을 변경해야 한다.
-ㄹ. 시스템 권한은 일반 앱에서도 사용자 동의로 부여 가능하다.
-
-보기: ① ㄱ,ㄴ ② ㄱ,ㄷ ③ ㄴ,ㄷ ④ ㄷ,ㄹ ⑤ ㄱ,ㄹ
-
-정답: ④ (ㄷ,ㄹ)
-해설: ㄹ이 틀림. 시스템 권한은 플랫폼 서명/시스템 앱만 사용 가능.
-
-[Example 2 - Code with Timing/Flow Analysis]
-다음 Kotlin 코드의 실행 결과로 출력되는 값을 시간 순서대로 나열한 것은?
-
-suspend fun main() {
-    coroutineScope {
-        val state = MutableStateFlow(1)
-        val flow = flow {
-            emit(1)
-            delay(1_000L)
-            emit(2)
-            delay(1_000L)
-            emit(3)
-        }.flatMapLatest { value ->
-            state.map { inner -> value + inner }
-        }
-        launch {
-            delay(999L)
-            state.emit(2)
-            delay(999L)
-            state.emit(3)
-        }
-        flow.collect { println("value: $it") }
-    }
-}
-
-보기: 1) 2,3,4,5,6  2) 2,4,5  3) 2,3,5  4) 2,4,5,6  5) 2,3,4
-
-정답: 2) 2,4,5
-해설: flatMapLatest는 새 emit 시 이전 flow 취소. 각 시점 외부+내부 state 합산.
-
-When creating hard questions, follow the structure and depth of these examples,
-but do NOT reuse the same content. Create entirely new questions on the requested topic.
-`.trim() : "";
-
-    // 4. System 메시지: 템플릿 + 난이도 규칙 + 예시 + 새 JSON 포맷
+    // 4. System 메시지 (축약 버전)
     const systemPrompt = `
-You are an expert exam question creator specializing in high-quality multiple-choice questions.
+Expert exam question creator. Use templates & difficulty rules.
 
-Your role is to generate questions using the provided PROBLEM TEMPLATES and DIFFICULTY RULES.
-
-PROBLEM TEMPLATES:
+TEMPLATES:
 ${templateGuidelines}
 
-DIFFICULTY RULES:
-The requested overall difficulty is "${difficulty}".
-${difficultyGuidelines}
-${hardExamples}
+DIFFICULTY: "${difficulty}"
+${difficultyGuidelines}${hardHint}
 
-INSTRUCTIONS:
-1. For each question, select an appropriate template from the list above
-2. Fill in the template with content relevant to the given topic
-3. Ensure the question follows the template's format and style
-4. Create plausible distractors (wrong answers) that test understanding
-5. Strictly follow the difficulty rules - especially for hard questions, ensure multi-step reasoning is required
-
-OUTPUT FORMAT (JSON ONLY):
+JSON FORMAT:
 {
-  "questions": [
-    {
-      "stem": "Question text (CAN include code snippets if question type is 'code')",
-      "choices": [
-        {
-          "text": "Choice 1",
-          "isCorrect": false,
-          "reason": "짧은 이유 (왜 틀렸는지)"
-        },
-        {
-          "text": "Choice 2",
-          "isCorrect": true,
-          "reason": "짧은 이유 (왜 맞는지)"
-        },
-        {
-          "text": "Choice 3",
-          "isCorrect": false,
-          "reason": "짧은 이유"
-        },
-        {
-          "text": "Choice 4",
-          "isCorrect": false,
-          "reason": "짧은 이유"
-        }
-      ],
-      "explanation": "정답이 왜 맞고 나머지가 왜 틀린지 요약하는 전체 해설",
-      "difficulty": "easy" | "medium" | "hard"
-    }
-  ]
+  "questions": [{
+    "stem": "Question (code ok)",
+    "choices": [{"text":"...", "isCorrect":false, "reason":"..."}, ...],
+    "explanation": "Core concept + reasoning + why wrong",
+    "difficulty": "easy|medium|hard"
+  }]
 }
 
-CRITICAL CONSTRAINTS:
-- Each question MUST have EXACTLY ONE choice with "isCorrect": true
-- All other choices MUST have "isCorrect": false
-- The "reason" field should be 1-2 sentences explaining why this choice is correct/incorrect
-- Each question must use exactly ${choiceCount} choices
-- Language: ${language === "ko" ? "Korean" : "English"}
-- For CODE type questions: MUST include actual code in the "stem" field
-- When including code, use \\n for line breaks (JSON escaped newlines)
-- Example: "다음 코드의 실행 결과는?\\n\\nfun main() {\\n    println(\\"Hello\\")\\n}"
-- The entire response must be ONLY valid JSON - no markdown code blocks wrapping the JSON
-- DO NOT wrap the JSON response in \`\`\`json...\`\`\` blocks
-- DO NOT include any text before or after the JSON object
-- Ensure all strings are properly JSON-escaped (use \\\\ for backslash, \\" for quotes, \\n for newlines)
+RULES:
+- EXACTLY ONE "isCorrect":true per question
+- ${choiceCount} choices, language: ${language === "ko" ? "Korean" : "English"}
+- Code: use \\n, JSON-escape properly
+- Return ONLY JSON (no markdown blocks)
 
-EXPLANATION QUALITY REQUIREMENTS (모든 난이도 공통):
-The "explanation" field is critical for learning and MUST follow these rules:
+EXPLANATION (3-6 sentences):
+- Core concept tested
+- Reasoning steps (1-3)
+- Why others wrong
+- For ㄱㄴㄷㄹ/numbered: "ㄱ: 참/거짓. 이유..." per statement
 
-1. Structure (3-6 sentences recommended):
-   - First: Briefly mention the core concept/rule being tested
-   - Second: Explain the logical reasoning to reach the correct answer (1-3 steps)
-   - Third: Mention why incorrect choices are wrong
-
-2. For multi-statement questions (ㄱ,ㄴ,ㄷ,ㄹ style or numbered statements):
-   - If the question stem or choices contain statements like "ㄱ. ~", "ㄴ. ~", "ㄷ. ~", "ㄹ. ~"
-   - OR numbered statements like "(1) ~", "(2) ~", "(3) ~"
-   - The explanation MUST include a breakdown for EACH statement:
-     - Example format:
-       "ㄱ: 참이다. 이유는 [1-2 sentences]"
-       "ㄴ: 거짓이다. 이유는 [1-2 sentences]"
-       "ㄷ: 참이다. 이유는 [1-2 sentences]"
-       "ㄹ: 거짓이다. 이유는 [1-2 sentences]"
-   - For numbered statements: "1번 진술: [correct/incorrect]. 이유는 ~"
-   - This ensures students understand WHY each individual statement is true or false
-
-3. Avoid single-sentence explanations:
-   - Do NOT just say "정답은 A이다" or "B가 틀렸기 때문"
-   - Always explain the reasoning process, not just the result
-
-STEM AND CHOICES SEPARATION RULES (지문/보기 중복 금지):
-To maintain proper exam format and avoid redundancy, follow these critical rules:
-
-1. Do NOT repeat the exact same full sentence in both the question stem and the choices.
-   - The stem provides context, conditions, and the question itself
-   - The choices provide the possible answers
-   - These should NOT duplicate each other word-for-word
-
-2. For multi-statement format (ㄱ,ㄴ,ㄷ,ㄹ style):
-   - If the stem already lists statements like:
-     "ㄱ. Statement A
-      ㄴ. Statement B
-      ㄷ. Statement C
-      ㄹ. Statement D"
-   - Then choices MUST ONLY refer to combinations of those labels:
-     "① ㄱ, ㄴ"
-     "② ㄱ, ㄷ"
-     "③ ㄴ, ㄷ"
-     "④ ㄷ, ㄹ"
-   - Do NOT repeat the full statement texts in the choices
-
-3. For regular statement-based choices:
-   - If choices contain full statement sentences (① ~, ② ~, ③ ~, ④ ~),
-   - Then the stem must NOT pre-list those statements
-   - The stem should only ask the question in 1-2 sentences
-   - Example: "다음 중 View와 ViewGroup에 대한 설명으로 옳지 않은 것은?"
-   - Then each choice provides a complete statement to evaluate
-
-4. Terminology overlap is acceptable:
-   - Using the same technical terms (View, ViewGroup, etc.) in both stem and choices is fine
-   - But copying entire sentences/paragraphs is prohibited
+STEM/CHOICES:
+- Stem: context+question. Choices: answers
+- ㄱㄴㄷㄹ in stem → choices are label combinations only (① ㄱ,ㄴ)
+- Full sentences in choices → stem is question only (no repetition)
 `.trim();
 
     // 5. User 메시지: 구체적인 요청 사항
@@ -794,78 +612,98 @@ Return ONLY the JSON object. No other text.
             );
         }
 
-        // 9-3. 2차 검증: AI 기반 도메인 지식 검증
-        // NOTE: 이 단계는 추가 비용이 발생함. 향후 환경변수/feature flag로 제어 가능
-        console.log(`[Validation] Starting AI verification for ${structurallyValidQuestions.length} questions`);
-        const verificationStartTime = Date.now();
-
-        const verificationResults = await verifyQuestionsWithAI(structurallyValidQuestions);
-
-        const verificationDuration = Date.now() - verificationStartTime;
-        console.log(`[Validation] AI verification completed in ${verificationDuration}ms`);
-
-        // 9-4. 검증 결과 적용 및 최종 문제 생성
+        // 9-3. 2차 검증: AI 기반 도메인 지식 검증 (validationLevel에 따라 분기)
         const validQuestions: Question[] = [];
         const errors: Array<{ index: number; error: string }> = [];
 
-        structurallyValidQuestions.forEach((aiQuestion, idx) => {
-            const verificationResult = verificationResults[idx];
+        if (validationLevel === "none") {
+            // none: 2차 검증 생략, 구조적으로 유효한 문제만 변환
+            console.log(`[Validation] Skipping AI verification (validationLevel: none)`);
 
-            // AI 검증에서 invalid로 판정된 경우
-            if (!verificationResult.isValid) {
-                console.warn(
-                    `[Validation] Question ${idx} marked invalid by AI verification:`,
-                    verificationResult.issueSummary
-                );
-                console.warn(
-                    `[Validation] Stem: "${aiQuestion.stem.substring(0, 100)}..."`
-                );
-                errors.push({
-                    index: idx,
-                    error: `AI verification failed: ${verificationResult.issueSummary}`
-                });
-                return; // 이 문제는 제외
-            }
+            structurallyValidQuestions.forEach((aiQuestion, idx) => {
+                try {
+                    const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
+                    validQuestions.push(question);
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.warn(`[Validation] Question ${idx} failed mapping: ${errorMessage}`);
+                    errors.push({ index: idx, error: errorMessage });
+                }
+            });
+        } else {
+            // light | strict: 2차 AI 검증 수행
+            console.log(`[Validation] Starting AI verification for ${structurallyValidQuestions.length} questions (level: ${validationLevel})`);
+            const verificationStartTime = Date.now();
 
-            // fixedIsCorrect가 제공된 경우 적용
-            if (verificationResult.fixedIsCorrect && verificationResult.fixedIsCorrect.length === aiQuestion.choices.length) {
-                console.log(
-                    `[Validation] Question ${idx}: Applying AI-corrected isCorrect flags`
-                );
-                aiQuestion.choices.forEach((choice, choiceIdx) => {
-                    choice.isCorrect = verificationResult.fixedIsCorrect![choiceIdx];
-                });
-            }
+            const verificationResults = await verifyQuestionsWithAI(structurallyValidQuestions);
 
-            // Question 타입으로 변환 (기존 검증 로직 포함)
-            try {
-                const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
-                validQuestions.push(question);
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                console.warn(`[Validation] Question ${idx} failed final mapping: ${errorMessage}`);
-                console.warn(`[Validation] Skipping question ${idx}:`, JSON.stringify(aiQuestion, null, 2));
-                errors.push({ index: idx, error: errorMessage });
-            }
-        });
+            const verificationDuration = Date.now() - verificationStartTime;
+            console.log(`[Validation] AI verification completed in ${verificationDuration}ms`);
 
-        // 10. 최종 검증: 유효한 문제 수 확인
+            // 9-4. 검증 결과 적용 및 최종 문제 생성
+            structurallyValidQuestions.forEach((aiQuestion, idx) => {
+                const verificationResult = verificationResults[idx];
+
+                // AI 검증에서 invalid로 판정된 경우
+                if (!verificationResult.isValid) {
+                    console.warn(
+                        `[Validation] Question ${idx} marked invalid by AI verification:`,
+                        verificationResult.issueSummary
+                    );
+                    console.warn(
+                        `[Validation] Stem: "${aiQuestion.stem.substring(0, 100)}..."`
+                    );
+                    errors.push({
+                        index: idx,
+                        error: `AI verification failed: ${verificationResult.issueSummary}`
+                    });
+                    return; // 이 문제는 제외
+                }
+
+                // fixedIsCorrect가 제공된 경우 적용
+                if (verificationResult.fixedIsCorrect && verificationResult.fixedIsCorrect.length === aiQuestion.choices.length) {
+                    console.log(
+                        `[Validation] Question ${idx}: Applying AI-corrected isCorrect flags`
+                    );
+                    aiQuestion.choices.forEach((choice, choiceIdx) => {
+                        choice.isCorrect = verificationResult.fixedIsCorrect![choiceIdx];
+                    });
+                }
+
+                // Question 타입으로 변환 (기존 검증 로직 포함)
+                try {
+                    const question = mapAiQuestionToInternalQuestion(aiQuestion, request);
+                    validQuestions.push(question);
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.warn(`[Validation] Question ${idx} failed final mapping: ${errorMessage}`);
+                    console.warn(`[Validation] Skipping question ${idx}:`, JSON.stringify(aiQuestion, null, 2));
+                    errors.push({ index: idx, error: errorMessage });
+                }
+            });
+        }
+
+        // 10. 최종 검증: 유효한 문제 수 확인 (validationLevel에 따라 분기)
         if (validQuestions.length === 0) {
             throw new Error(`No valid questions generated. Total errors: ${errors.length}`);
         }
 
-        // 정책: 요청한 개수보다 적으면 에러 (디버깅에 유리)
-        // 만약 "적은 개수라도 반환"하고 싶다면 이 체크를 제거하면 됨
         if (validQuestions.length < count) {
-            console.warn(`[OpenAI] Warning: Generated ${validQuestions.length} valid questions, requested ${count}`);
-            // 엄격 모드: 에러 발생
-            throw new Error(
-                `Generated only ${validQuestions.length} valid questions out of ${count} requested. ` +
-                `${errors.length} questions failed validation.`
+            console.warn(
+                `[OpenAI] Warning: Generated ${validQuestions.length}/${count} valid questions. ` +
+                `${errors.length} failed validation. Mode: ${validationLevel}`
             );
-            // 관대 모드: 경고만 하고 진행
-            // (위 throw를 주석 처리하고 아래 로그만 남기면 됨)
-            // console.log(`[OpenAI] Returning ${validQuestions.length} valid questions despite requesting ${count}`);
+
+            if (validationLevel === "strict") {
+                // strict: 부족하면 에러
+                throw new Error(
+                    `Generated only ${validQuestions.length} valid questions out of ${count} requested. ` +
+                    `${errors.length} questions failed validation.`
+                );
+            } else {
+                // none | light: 경고만 하고 진행
+                console.log(`[OpenAI] Returning ${validQuestions.length} questions in ${validationLevel} mode`);
+            }
         }
 
         const totalDuration = Date.now() - startTime;
@@ -1008,4 +846,69 @@ Return ONLY the JSON object.
         console.error("[OpenAI] Error regenerating question:", error);
         throw error;
     }
+}
+
+// ============================================================================
+// 배치 생성: 대량 문제 생성 시 병렬 처리
+// ============================================================================
+
+/**
+ * 한 번에 생성할 최대 문제 수 (배치 크기)
+ * 너무 크면 timeout 위험, 너무 작으면 API 호출 횟수 증가
+ */
+const MAX_QUESTIONS_PER_CALL = 10;
+
+/**
+ * 대량 문제 생성 시 병렬 배치 처리
+ *
+ * count가 MAX_QUESTIONS_PER_CALL보다 클 때 여러 번의 generateQuestionsFromAI 호출을
+ * Promise.all로 병렬 처리하여 속도를 높임
+ *
+ * NOTE: API 핸들러에서는 이 함수를 사용하는 것을 권장
+ * (generateQuestionsFromAI는 단일 호출용, 이 함수는 배치용)
+ *
+ * @param request 문제 생성 요청
+ * @returns 생성된 모든 문제
+ */
+export async function generateQuestionsWithBatching(
+    request: GenerateQuestionsRequest
+): Promise<GenerateQuestionsResponse> {
+    const { count } = request;
+
+    // 소량이면 기존 로직 그대로 사용
+    if (count <= MAX_QUESTIONS_PER_CALL) {
+        return generateQuestionsFromAI(request);
+    }
+
+    // 배치 단위로 분할
+    const batchSize = MAX_QUESTIONS_PER_CALL;
+    const tasks: Promise<GenerateQuestionsResponse>[] = [];
+
+    console.log(`[Batching] Splitting ${count} questions into batches of ${batchSize}`);
+
+    for (let i = 0; i < count; i += batchSize) {
+        const size = Math.min(batchSize, count - i);
+        tasks.push(
+            generateQuestionsFromAI({
+                ...request,
+                count: size,
+            })
+        );
+    }
+
+    console.log(`[Batching] Executing ${tasks.length} parallel batches`);
+    const batchStartTime = Date.now();
+
+    // 병렬 실행
+    const results = await Promise.all(tasks);
+
+    const batchDuration = Date.now() - batchStartTime;
+    console.log(`[Batching] All batches completed in ${batchDuration}ms (${(batchDuration / 1000).toFixed(2)}s)`);
+
+    // 결과 병합
+    const questions = results.flatMap(r => r.questions);
+
+    console.log(`[Batching] Total questions generated: ${questions.length}/${count}`);
+
+    return { questions };
 }
